@@ -644,6 +644,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         </div>
         <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+          <button class="btn btn-soft" onclick="emailInvoice()">📧 Email Invoice</button>
           <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
           <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
         </div>
@@ -1449,6 +1450,40 @@ function renderClientHistPanel(clientId){
 }
 
 // ── Invoice ───────────────────────────────────────────────────────────────────
+function emailInvoice(){
+  // Get current invoice details from the last history entry
+  const entry=invoiceHistory[invoiceHistory.length-1];
+  if(!entry){toast("No invoice to email");return;}
+  const cl=clients.find(x=>x.id===entry.clientId)||{};
+  const pmEmail=cl.pm?.email||"";
+  const invoiceNum=entry.invoiceNum||"Invoice";
+  const workerName=worker.name||"Support Worker";
+  const total=new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(entry.total||0);
+  const date=entry.date?new Date(entry.date+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}):"";
+
+  const subject=encodeURIComponent(`${invoiceNum} — NDIS Support Services — ${workerName}`);
+  const body=encodeURIComponent(
+`Hi${cl.pm?.contact?" "+cl.pm.contact:""},
+
+Please find attached ${invoiceNum} for NDIS support services provided to ${cl.name||"participant"}.
+
+Invoice number: ${invoiceNum}
+Date: ${date}
+Total: ${total}
+Worker: ${workerName}${worker.abn?"\nABN: "+worker.abn:""}
+
+Please don't hesitate to contact me if you have any questions.
+
+Kind regards,
+${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`
+  );
+
+  // Open email client
+  const mailto=`mailto:${pmEmail}?subject=${subject}&body=${body}`;
+  window.open(mailto,"_self");
+  toast("📧 Opening email app...");
+}
+
 function goInvoice(){
   if(!sessions.length)return;
   ls.set(`ndis-svc-${activeId}`,sessions);
