@@ -404,6 +404,8 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   }
 })();
 </script>
+<!-- Google Identity Services for Drive API -->
+<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -425,6 +427,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
         <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
         <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
+        <button class="nav-btn" id="drive-connect-btn" onclick="connectAndBackupDrive();closeNavMenu()">☁️ Connect Drive</button>
       </div>
     </div>
     <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)"/>
@@ -801,6 +804,11 @@ window.addEventListener("load",()=>{
     populateReportMonths();
     if(!worker.name){populateSettings();goPage("settings");}
     else goPage("dashboard");
+    // Restore Drive button state if previously connected
+    if(ls.get("ndis-drive-connected")){
+      const btn=document.getElementById("drive-connect-btn");
+      if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+    }
   }catch(err){
     console.error("Boot error:",err);
     document.getElementById("page-dashboard").classList.add("active");
@@ -869,15 +877,9 @@ function exportData(){
 }
 
 function autoBackup(invoiceNum){
-  // Silently save a backup every time an invoice is generated
+  // Download locally first
   try{
-    const data={
-      exportedAt:new Date().toISOString(),
-      version:1,
-      worker,
-      clients,
-      invoiceHistory
-    };
+    const data=buildBackupData();
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
@@ -886,9 +888,121 @@ function autoBackup(invoiceNum){
     a.download=`ndis-backup-${date}-${(invoiceNum||"inv").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast("📁 Backup saved automatically");
+  }catch(e){console.warn("Local backup failed:",e);}
+  // Then try Drive if connected
+  if(driveToken){
+    saveToDrive(invoiceNum).then(()=>{
+      toast("📁 Backed up locally + saved to Google Drive ✓");
+    }).catch(()=>{
+      toast("📁 Backup saved locally (Drive sync failed)");
+    });
+  } else {
+    toast("📁 Backup saved to Downloads");
+  }
+}
+
+// ── Google Drive ──────────────────────────────────────────────────────────────
+const GDRIVE_CLIENT_ID="838016657434-gseqguqgav84qf2naogvi9km4im82unp.apps.googleusercontent.com";
+const GDRIVE_SCOPE="https://www.googleapis.com/auth/drive.file";
+let driveToken=null;
+let driveTokenExpiry=0;
+let driveFolderId=null;
+
+function buildBackupData(){
+  return{exportedAt:new Date().toISOString(),version:1,worker,clients,invoiceHistory};
+}
+
+function connectDrive(){
+  return new Promise((resolve,reject)=>{
+    if(!window.google){reject(new Error("Google API not loaded"));return;}
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:GDRIVE_CLIENT_ID,
+      scope:GDRIVE_SCOPE,
+      callback:(resp)=>{
+        if(resp.error){reject(new Error(resp.error));return;}
+        driveToken=resp.access_token;
+        driveTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+        ls.set("ndis-drive-connected",true);
+        resolve(driveToken);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function ensureToken(){
+  if(driveToken&&Date.now()<driveTokenExpiry) return driveToken;
+  return await connectDrive();
+}
+
+async function ensureDriveFolder(){
+  if(driveFolderId) return driveFolderId;
+  const token=await ensureToken();
+  // Search for existing folder
+  const search=await fetch(
+    "https://www.googleapis.com/drive/v3/files?q=name%3D'NDIS+Invoice+Backups'+and+mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id,name)",
+    {headers:{Authorization:"Bearer "+token}}
+  );
+  const searchData=await search.json();
+  if(searchData.files&&searchData.files.length>0){
+    driveFolderId=searchData.files[0].id;
+    return driveFolderId;
+  }
+  // Create folder
+  const create=await fetch("https://www.googleapis.com/drive/v3/files",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+    body:JSON.stringify({name:"NDIS Invoice Backups",mimeType:"application/vnd.google-apps.folder"})
+  });
+  const createData=await create.json();
+  driveFolderId=createData.id;
+  return driveFolderId;
+}
+
+async function saveToDrive(invoiceNum){
+  const token=await ensureToken();
+  const folderId=await ensureDriveFolder();
+  const data=buildBackupData();
+  const date=new Date().toISOString().slice(0,10);
+  const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
+  const content=JSON.stringify(data,null,2);
+  // Multipart upload
+  const boundary="ndis_backup_boundary";
+  const body=[
+    `--${boundary}`,
+    "Content-Type: application/json",
+    "",
+    JSON.stringify({name:filename,parents:[folderId]}),
+    `--${boundary}`,
+    "Content-Type: application/json",
+    "",
+    content,
+    `--${boundary}--`
+  ].join("\r\n");
+  const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{
+    method:"POST",
+    headers:{
+      Authorization:"Bearer "+token,
+      "Content-Type":`multipart/related; boundary=${boundary}`
+    },
+    body
+  });
+  if(!resp.ok) throw new Error("Drive upload failed: "+resp.status);
+  return await resp.json();
+}
+
+async function connectAndBackupDrive(){
+  try{
+    toast("Connecting to Google Drive...");
+    await connectDrive();
+    await saveToDrive("manual");
+    toast("✅ Connected! Backups will now save to Google Drive automatically");
+    // Update button
+    const btn=document.getElementById("drive-connect-btn");
+    if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
   }catch(e){
-    console.warn("Auto-backup failed:",e);
+    toast("Could not connect to Google Drive");
+    console.warn("Drive connect error:",e);
   }
 }
 
