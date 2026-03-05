@@ -17,6 +17,8 @@
 <!-- PWA Icons (inline SVG as data URI) -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23064e3b'/%3E%3Ctext x='256' y='320' font-size='260' text-anchor='middle' font-family='system-ui,sans-serif' fill='%236ee7b7'%3E%24%3C/text%3E%3C/svg%3E"/>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
@@ -433,13 +435,24 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
     });
   }
 })();
+// ── Drive reconnect modal ─────────────────────────────────────────────────────
+async function driveModalConnect(){
+  const modal=document.getElementById("drive-reconnect-modal");
+  if(modal) modal.style.display="none";
+  await connectAndBackupDrive();
+}
+function driveModalSkip(){
+  const modal=document.getElementById("drive-reconnect-modal");
+  if(modal) modal.style.display="none";
+  // Don't forget — ask again next session
+}
+
 // ── Payment Reminders ─────────────────────────────────────────────────────────
 function checkPaymentReminders(){
   const today=new Date();
   const overdue=invoiceHistory.filter(h=>{
     if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
     if(h.payStatus!=="sent") return false;
-    if(!h.sentDate&&!h.date) return false;
     const sent=new Date((h.sentDate||h.date)+"T12:00:00");
     return (today-sent)/(1000*60*60*24)>=3;
   });
@@ -461,24 +474,19 @@ function checkPaymentReminders(){
   `).join("");
   document.getElementById("pay-remind-modal").style.display="flex";
 }
-
 function remindMarkPaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const btn=document.querySelector(`button[onclick="remindMarkPaid('${id}')"]`);
-  if(btn) btn.closest("div[style]").remove();
+  document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]")?.remove();
   toast("💰 Marked as paid ✓");
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
-
 function remindSnooze(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const btn=document.querySelector(`button[onclick="remindSnooze('${id}')"]`);
-  if(btn) btn.closest("div[style]").remove();
+  document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]")?.remove();
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
-
 function closePayReminder(){
   document.getElementById("pay-remind-modal").style.display="none";
 }
@@ -935,27 +943,15 @@ window.addEventListener("load",()=>{
     if(!worker.name){populateSettings();goPage("settings");}
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
-    setTimeout(()=>checkPaymentReminders(),1800);
-    // Auto-reconnect Drive silently if previously connected
+    setTimeout(()=>checkPaymentReminders(),2000);
+    // Show Drive reconnect popup if previously connected
     if(ls.get("ndis-drive-connected")){
       const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="☁️ Reconnecting...";btn.style.background="";}
+      if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
       setTimeout(()=>{
-        if(!window.google){if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}return;}
-        const client=google.accounts.oauth2.initTokenClient({
-          client_id:GDRIVE_CLIENT_ID,scope:GDRIVE_SCOPE,prompt:"",
-          callback:(resp)=>{
-            if(resp.error||!resp.access_token){
-              if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
-              ls.set("ndis-drive-connected",false);return;
-            }
-            driveToken=resp.access_token;
-            driveTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
-            if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
-          }
-        });
-        client.requestAccessToken();
-      },1500);
+        const m=document.getElementById("drive-reconnect-modal");
+        if(m) m.style.display="flex";
+      },1000);
     }
   }catch(err){
     console.error("Boot error:",err);
@@ -1680,23 +1676,35 @@ Kind regards,
 ${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`
   );
 
-  // Open Gmail compose in new tab
-  const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-  window.open(gmailUrl,"_blank");
-  // Trigger PDF save
-  const prevTitle=document.title;
-  document.title=invoiceNum;
-  setTimeout(()=>{
-    toast("📄 Save as PDF then attach to Gmail");
-    window.print();
-    document.title=prevTitle;
-    // After print dialog, ask if they actually sent it
-    setTimeout(()=>showSentConfirm(entry.id, invoiceNum),1200);
-  },600);
+  // Auto-download PDF, then open Gmail
+  toast("📄 Generating PDF...");
+  const entryId=entry.id;
+  setTimeout(async()=>{
+    try{
+      const el=document.getElementById("inv-render");
+      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:"#ffffff"});
+      const{jsPDF}=window.jspdf;
+      const pdf=new jsPDF("p","mm","a4");
+      const w=pdf.internal.pageSize.getWidth();
+      const h=(canvas.height*w)/canvas.width;
+      pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h);
+      pdf.save(`${invoiceNum}.pdf`);
+      toast("📄 PDF saved — now attach it in Gmail");
+    }catch(e){
+      console.warn("PDF gen failed:",e);
+      toast("⚠ Could not auto-generate PDF — use Print/PDF instead");
+    }
+    // Open Gmail compose
+    const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+    window.open(gmailUrl,"_blank");
+    // Ask if they actually sent it
+    setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
+  },200);
 }
 
-function showSentConfirm(entryId, invoiceNum){
+function showSentConfirm(entryId,invoiceNum){
   const modal=document.getElementById("sent-confirm-modal");
+  if(!modal)return;
   document.getElementById("sent-confirm-num").textContent=invoiceNum;
   document.getElementById("sent-confirm-yes").onclick=()=>{
     invoiceHistory=invoiceHistory.map(h=>h.id===entryId?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);
@@ -2242,13 +2250,24 @@ function renderReport(){
     </div>
   `;
 }
+// ── Drive reconnect modal ─────────────────────────────────────────────────────
+async function driveModalConnect(){
+  const modal=document.getElementById("drive-reconnect-modal");
+  if(modal) modal.style.display="none";
+  await connectAndBackupDrive();
+}
+function driveModalSkip(){
+  const modal=document.getElementById("drive-reconnect-modal");
+  if(modal) modal.style.display="none";
+  // Don't forget — ask again next session
+}
+
 // ── Payment Reminders ─────────────────────────────────────────────────────────
 function checkPaymentReminders(){
   const today=new Date();
   const overdue=invoiceHistory.filter(h=>{
     if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
     if(h.payStatus!=="sent") return false;
-    if(!h.sentDate&&!h.date) return false;
     const sent=new Date((h.sentDate||h.date)+"T12:00:00");
     return (today-sent)/(1000*60*60*24)>=3;
   });
@@ -2270,29 +2289,37 @@ function checkPaymentReminders(){
   `).join("");
   document.getElementById("pay-remind-modal").style.display="flex";
 }
-
 function remindMarkPaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const btn=document.querySelector(`button[onclick="remindMarkPaid('${id}')"]`);
-  if(btn) btn.closest("div[style]").remove();
+  document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]")?.remove();
   toast("💰 Marked as paid ✓");
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
-
 function remindSnooze(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const btn=document.querySelector(`button[onclick="remindSnooze('${id}')"]`);
-  if(btn) btn.closest("div[style]").remove();
+  document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]")?.remove();
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
-
 function closePayReminder(){
   document.getElementById("pay-remind-modal").style.display="none";
 }
 
 </script>
+
+    <!-- ── DRIVE RECONNECT MODAL ── -->
+    <div id="drive-reconnect-modal" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
+      <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">☁️</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Connect Google Drive</div>
+        <div style="font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.6;">Your invoices back up automatically to Google Drive. Connect now so nothing gets lost.</div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="driveModalConnect()">Connect Drive</button>
+          <button class="btn btn-ghost" style="flex:1;" onclick="driveModalSkip()">Not now</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── SENT CONFIRM MODAL ── -->
     <div id="sent-confirm-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:16px;">
