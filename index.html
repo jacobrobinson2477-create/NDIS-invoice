@@ -3,24 +3,10 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>NDIS Invoice — Independent Worker</title>
-
-<!-- PWA -->
-<meta name="application-name" content="NDIS Invoice"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="NDIS Invoice"/>
-<meta name="theme-color" content="#064e3b"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<link rel="manifest" id="pwa-manifest"/>
-
-<!-- PWA Icons (inline SVG as data URI) -->
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23064e3b'/%3E%3Ctext x='256' y='320' font-size='260' text-anchor='middle' font-family='system-ui,sans-serif' fill='%236ee7b7'%3E%24%3C/text%3E%3C/svg%3E"/>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<title>NDIS Invoice — Independent Worker v3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="screen"/>
+<style>@media print{*{font-family:Arial,Helvetica,sans-serif!important;}}</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -47,17 +33,10 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .nav-logo{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;}
 .nav-logo span{color:var(--mint);}
 .nav-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(255,255,255,.1);color:#6ee7b7;border-radius:4px;padding:2px 7px;letter-spacing:1px;text-transform:uppercase;}
-.nav-right{display:flex;gap:6px;align-items:center;}
+.nav-right{display:flex;gap:8px;align-items:center;}
 .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#a7f3d0;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
 .nav-btn:hover{background:rgba(255,255,255,.18);}
 .nav-btn.active-tab{background:rgba(5,150,105,.35);border-color:var(--mint);}
-.nav-more-wrap{position:relative;}
-.nav-more-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#a7f3d0;border-radius:7px;width:34px;height:34px;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.nav-more-btn:hover{background:rgba(255,255,255,.18);}
-.nav-dropdown{position:absolute;top:42px;right:0;background:var(--green-xd);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:170px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.35);}
-.nav-dropdown.hidden{display:none!important;}
-.nav-dropdown .nav-btn{width:100%;text-align:left;}
-@media(max-width:680px){.nav{padding:0 12px;}.nav-hide-mobile{display:none!important;}}
 
 /* ── LAYOUT ── */
 .shell{display:flex;min-height:calc(100vh - 52px);}
@@ -268,35 +247,6 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .inv-footer strong{font-weight:700;}
 .inv-disc-bar{padding:8px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#92400e;line-height:1.5;}
 
-/* ── ONBOARDING ── */
-.onboard-wrap{max-width:480px;margin:0 auto;padding:32px 16px;}
-.onboard-logo{font-size:36px;font-weight:800;color:var(--green-xd);letter-spacing:-1px;margin-bottom:4px;}
-.onboard-logo span{color:var(--green);}
-.onboard-sub{font-size:14px;color:var(--sub);margin-bottom:32px;}
-.onboard-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:28px;}
-.onboard-step{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;}
-.onboard-step-num{width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
-.onboard-step-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;}
-.onboard-step-desc{font-size:12px;color:var(--sub);line-height:1.5;}
-
-/* ── PAYMENT STATUS ── */
-.pay-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
-.pay-badge.unpaid{background:#fef3c7;color:#92400e;}
-.pay-badge.sent{background:#dbeafe;color:#1e40af;}
-.pay-badge.paid{background:#d1fae5;color:#065f46;}
-.pay-badge.overdue{background:#fee2e2;color:#991b1b;}
-.hist-row-status{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;}
-.pay-action-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--sub);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;}
-.pay-action-btn:hover{border-color:var(--green);color:var(--green);}
-
-/* ── TAX PAGE ── */
-.tax-fy-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
-.tax-fy-bar select{background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;}
-.tax-section{margin-bottom:20px;}
-.tax-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
-.gst-badge{background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;margin-left:6px;}
-.gst-badge.off{background:#f3f4f6;color:#6b7280;}
-
 /* ── TOAST ── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--green-xd);color:#a7f3d0;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:toastIn .2s ease;pointer-events:none;}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -329,8 +279,8 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   .cl-hist-item{flex-shrink:0;min-width:120px;}
   .cl-hist-hd{display:none;}
 }
-@page{margin:10mm;size:A4;}
 @media print{
+  @page{size:A4 portrait;margin:12mm 14mm;}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   html,body{background:#fff!important;height:auto!important;min-height:0!important;overflow:visible!important;}
   .nav,.sb,.ph-row,.ph,.btn-row,.disc,.page-actions,.sticky-total,.toast,.mobile-add-fab,.cl-hist-panel,.svc-shell{display:none!important;}
@@ -340,7 +290,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   .page.active{display:block!important;}
   #page-invoice{margin:0;padding:0;}
   .inv-wrap{border:none!important;box-shadow:none!important;border-radius:0!important;max-width:100%!important;page-break-after:avoid;}
-  .inv-disc-bar{display:none!important;}
+  .inv-disc-bar{background:#fff!important;border-top:1px solid #ccc!important;}
   .inv-wrap *{page-break-inside:avoid;}
 }
 
@@ -379,121 +329,6 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   .report-grid{grid-template-columns:1fr;}
 }
 </style>
-<script>
-// ── PWA Setup ─────────────────────────────────────────────────────────────────
-(function(){
-  // Inject manifest as a blob so it works from a local file
-  const manifest={
-    name:"NDIS Invoice",
-    short_name:"NDIS Invoice",
-    description:"NDIS invoicing tool for independent support workers",
-    start_url:".",
-    display:"standalone",
-    background_color:"#064e3b",
-    theme_color:"#064e3b",
-    orientation:"portrait-primary",
-    icons:[
-      {
-        src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23064e3b'/%3E%3Ctext x='256' y='320' font-size='260' text-anchor='middle' font-family='system-ui,sans-serif' fill='%236ee7b7'%3E%24%3C/text%3E%3C/svg%3E",
-        sizes:"512x512",
-        type:"image/svg+xml",
-        purpose:"any maskable"
-      }
-    ]
-  };
-  const blob=new Blob([JSON.stringify(manifest)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  document.getElementById("pwa-manifest").href=url;
-
-  // Register service worker (inline as blob for local file use)
-  if("serviceWorker" in navigator){
-    const swCode=`
-      const CACHE="ndis-invoice-v1";
-      const ASSETS=[self.location.href];
-      self.addEventListener("install",e=>{
-        e.waitUntil(
-          caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())
-        );
-      });
-      self.addEventListener("activate",e=>{
-        e.waitUntil(
-          caches.keys().then(keys=>Promise.all(
-            keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
-          )).then(()=>self.clients.claim())
-        );
-      });
-      self.addEventListener("fetch",e=>{
-        e.respondWith(
-          caches.match(e.request).then(cached=>cached||fetch(e.request).catch(()=>caches.match(e.request)))
-        );
-      });
-    `;
-    const swBlob=new Blob([swCode],{type:"application/javascript"});
-    const swUrl=URL.createObjectURL(swBlob);
-    navigator.serviceWorker.register(swUrl).catch(()=>{
-      // Service worker may fail from file:// - that's ok, app still works
-    });
-  }
-})();
-// ── Drive reconnect modal ─────────────────────────────────────────────────────
-async function driveModalConnect(){
-  const modal=document.getElementById("drive-reconnect-modal");
-  if(modal) modal.style.display="none";
-  await connectAndBackupDrive();
-}
-function driveModalSkip(){
-  const modal=document.getElementById("drive-reconnect-modal");
-  if(modal) modal.style.display="none";
-  // Don't forget — ask again next session
-}
-
-// ── Payment Reminders ─────────────────────────────────────────────────────────
-function checkPaymentReminders(){
-  const today=new Date();
-  const overdue=invoiceHistory.filter(h=>{
-    if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
-    if(h.payStatus!=="sent") return false;
-    const sent=new Date((h.sentDate||h.date)+"T12:00:00");
-    return (today-sent)/(1000*60*60*24)>=3;
-  });
-  if(!overdue.length) return;
-  const list=document.getElementById("pay-remind-list");
-  if(!list) return;
-  list.innerHTML=overdue.map(h=>`
-    <div style="background:var(--bg);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(h.invoiceNum)}</div>
-        <div style="font-size:11px;color:var(--sub);">${esc(h.clientName)} · ${aud(h.total)}</div>
-        <div style="font-size:11px;color:var(--faint);">Sent ${fmtShort(h.sentDate||h.date)}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn btn-primary btn-sm" onclick="remindMarkPaid('${h.id}')">✓ Paid</button>
-        <button class="btn btn-ghost btn-sm" onclick="remindSnooze('${h.id}')">Later</button>
-      </div>
-    </div>
-  `).join("");
-  document.getElementById("pay-remind-modal").style.display="flex";
-}
-function remindMarkPaid(id){
-  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
-  ls.set("ndis-history",invoiceHistory);
-  document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]")?.remove();
-  toast("💰 Marked as paid ✓");
-  if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
-}
-function remindSnooze(id){
-  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
-  ls.set("ndis-history",invoiceHistory);
-  document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]")?.remove();
-  if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
-}
-function closePayReminder(){
-  document.getElementById("pay-remind-modal").style.display="none";
-}
-
-</script>
-<!-- Google Identity Services for Drive API -->
-<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -503,24 +338,9 @@ function closePayReminder(){
     <span class="nav-badge">2025–26</span>
   </div>
   <div class="nav-right">
-    <button class="nav-btn nav-hide-mobile" id="nav-history" onclick="goPage('history')">📋 History</button>
-    <button class="nav-btn nav-hide-mobile" id="nav-report" onclick="goPage('report')">📊 Report</button>
-    <button class="nav-btn nav-hide-mobile" id="nav-tax" onclick="goPage('tax')">🧾 Tax</button>
-    <button class="nav-btn nav-hide-mobile" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
-    <button class="nav-btn hidden" id="install-btn" onclick="installApp()">📲 Install</button>
-    <div class="nav-more-wrap">
-      <button class="nav-more-btn" onclick="toggleNavMenu()" title="More options">⋮</button>
-      <div class="nav-dropdown hidden" id="nav-dropdown">
-        <button class="nav-btn" id="nav-history-m" onclick="goPage('history');closeNavMenu()">📋 History</button>
-        <button class="nav-btn" id="nav-report-m" onclick="goPage('report');closeNavMenu()">📊 Report</button>
-        <button class="nav-btn" id="nav-tax-m" onclick="goPage('tax');closeNavMenu()">🧾 Tax</button>
-        <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
-        <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
-        <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
-        <button class="nav-btn" id="drive-connect-btn" onclick="toggleDriveConnection();closeNavMenu()">☁️ Connect Drive</button>
-      </div>
-    </div>
-    <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)"/>
+    <button class="nav-btn" id="nav-history" onclick="goPage('history')">📋 History</button>
+    <button class="nav-btn" id="nav-report" onclick="goPage('report')">📊 Report</button>
+    <button class="nav-btn" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
   </div>
 </nav>
 
@@ -553,11 +373,6 @@ function closePayReminder(){
           <div class="field span2"><label>Payable To Name <span style="font-weight:400;color:var(--faint)">(on invoice — e.g. J &amp; N Robinson)</span></label><input id="s-payable" placeholder="Leave blank to use your name above"/></div>
           <div class="field span2"><label>Invoice Prefix Override <span style="font-weight:400;color:var(--faint)">(leave blank to auto-use client initials)</span></label><input id="s-prefix" placeholder="e.g. NM" class="mono" maxlength="6"/></div>
         </div>
-        <div class="tog-row" style="margin-top:16px;">
-          <label class="tog"><input type="checkbox" id="s-gst"/><span class="tog-track"><span class="tog-thumb"></span></span></label>
-          <span class="tog-lbl">Registered for GST <span class="gst-badge off" id="gst-status-badge">GST OFF</span></span>
-        </div>
-        <div id="gst-hint" class="hidden" style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5;">GST (10%) will be calculated and shown on your invoices and tax reports. Only enable if you are registered for GST with the ATO.</div>
       </div>
       <div class="card">
         <div class="card-hd"><span class="card-hd-icon">🏦</span> Bank Details</div>
@@ -738,8 +553,7 @@ function closePayReminder(){
           <div class="ph-title" id="inv-num-head">Invoice</div>
         </div>
         <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-primary" onclick="printInvoice()">🖨 Print / PDF</button>
-          <button class="btn btn-soft" onclick="emailInvoice()">📧 Email Invoice</button>
+          <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
           <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
           <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
         </div>
@@ -781,48 +595,6 @@ function closePayReminder(){
       <div id="rpt-body"></div>
     </div>
 
-    <!-- ── ONBOARDING ── -->
-    <div class="page" id="page-onboarding">
-      <div class="onboard-wrap">
-        <div class="onboard-logo">NDIS<span>invoice</span></div>
-        <div class="onboard-sub">The invoicing tool built for independent NDIS support workers.</div>
-        <div class="onboard-steps">
-          <div class="onboard-step">
-            <div class="onboard-step-num">1</div>
-            <div><div class="onboard-step-title">Set up your profile</div><div class="onboard-step-desc">Enter your name, ABN and bank details. These appear on every invoice you generate.</div></div>
-          </div>
-          <div class="onboard-step">
-            <div class="onboard-step-num">2</div>
-            <div><div class="onboard-step-title">Add your clients</div><div class="onboard-step-desc">Add each NDIS participant and their plan manager details including email for easy invoicing.</div></div>
-          </div>
-          <div class="onboard-step">
-            <div class="onboard-step-num">3</div>
-            <div><div class="onboard-step-title">Log your sessions</div><div class="onboard-step-desc">Select a client, add each support session with date and type. Rates are calculated automatically using the latest NDIS price guide.</div></div>
-          </div>
-          <div class="onboard-step">
-            <div class="onboard-step-num">4</div>
-            <div><div class="onboard-step-title">Generate &amp; send</div><div class="onboard-step-desc">Preview your invoice, print to PDF, and email it directly to your plan manager in one tap.</div></div>
-          </div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:14px;" onclick="finishOnboarding()">Get Started →</button>
-        <div style="text-align:center;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="goPage('dashboard')">Skip for now</button></div>
-      </div>
-    </div>
-
-    <!-- ── TAX TIME ── -->
-    <div class="page" id="page-tax">
-      <div class="ph">
-        <div class="ph-eyebrow">Tax</div>
-        <div class="ph-title">Tax Time Summary</div>
-        <div class="ph-sub">Financial year summary for your tax return.</div>
-      </div>
-      <div class="tax-fy-bar">
-        <select id="tax-fy" onchange="renderTax()"></select>
-        <select id="tax-client" onchange="renderTax()"><option value="">All clients</option></select>
-      </div>
-      <div id="tax-body"></div>
-    </div>
-
   </div><!-- /main -->
 </div><!-- /shell -->
 
@@ -860,6 +632,12 @@ const SUPPORTS={
     rates:{weekday:{item:"01_799_0107_1_1",rate:0.99},weekday_evening:{item:"01_799_0107_1_1",rate:0.99},saturday:{item:"01_799_0107_1_1",rate:0.99},sunday:{item:"01_799_0107_1_1",rate:0.99},public_holiday:{item:"01_799_0107_1_1",rate:0.99}}},
 };
 
+// ── Safe DOM helper ───────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id); // returns null safely — callers must guard
+const $v=(id,v)=>{const el=$(id);if(el)el.value=v===undefined?el.value:v;return el?.value||"";}; // get or set value safely
+const $t=(id,v)=>{const el=$(id);if(el)el.textContent=v;}; // set textContent safely
+const $h=(id,v)=>{const el=$(id);if(el)el.innerHTML=v;}; // set innerHTML safely
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const aud=n=>new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
 const fmtD=s=>s?new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"}):"";
@@ -887,7 +665,7 @@ const ls={
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let worker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1,gst:false};
+let worker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1};
 let clients=[];
 let activeId=null;
 let editId=null;
@@ -896,77 +674,32 @@ let invoiceHistory=[]; // [{id, clientId, clientName, invoiceNum, date, total, g
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.addEventListener("error",e=>{console.error("App error:",e.message,e.filename,e.lineno);});
-// ── Nav Menu ──────────────────────────────────────────────────────────────────
-function toggleNavMenu(){
-  const dd=document.getElementById("nav-dropdown");
-  dd.classList.toggle("hidden");
-}
-function closeNavMenu(){
-  document.getElementById("nav-dropdown").classList.add("hidden");
-}
-document.addEventListener("click",e=>{
-  const wrap=document.querySelector(".nav-more-wrap");
-  if(wrap&&!wrap.contains(e.target)) closeNavMenu();
-});
-
-// ── PWA Install Prompt ────────────────────────────────────────────────────────
-let _installPrompt=null;
-window.addEventListener("beforeinstallprompt",e=>{
-  e.preventDefault();
-  _installPrompt=e;
-  const btn=document.getElementById("install-btn");
-  if(btn) btn.classList.remove("hidden");
-});
-window.addEventListener("appinstalled",()=>{
-  _installPrompt=null;
-  const btn=document.getElementById("install-btn");
-  if(btn) btn.classList.add("hidden");
-  toast("App installed! ✓ Find it on your home screen");
-});
-function installApp(){
-  if(!_installPrompt){
-    toast("To install: tap ⋮ Menu → Add to Home Screen");
-    return;
-  }
-  _installPrompt.prompt();
-  _installPrompt.userChoice.then(()=>{_installPrompt=null;});
-}
-
 window.addEventListener("load",()=>{
   try{
     const w=ls.get("ndis-worker"),c=ls.get("ndis-clients"),h=ls.get("ndis-history");
     if(w) worker={...worker,...w};
     if(c) clients=c;
     if(h) invoiceHistory=h;
-    renderSidebar();
-    populateReportMonths();
+  }catch(e){console.error("Boot load error:",e);}
+  try{renderSidebar();}catch(e){console.error("renderSidebar error:",e);}
+  try{populateReportMonths();}catch(e){console.error("populateReportMonths error:",e);}
+  try{
     if(!worker.name){populateSettings();goPage("settings");}
-    else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
-    setTimeout(()=>checkPaymentReminders(),2000);
-    // Show Drive reconnect popup if previously connected
-    if(ls.get("ndis-drive-connected")){
-      const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
-      setTimeout(()=>{
-        const m=document.getElementById("drive-reconnect-modal");
-        if(m) m.style.display="flex";
-      },1000);
-    }
-  }catch(err){
-    console.error("Boot error:",err);
-    document.getElementById("page-dashboard").classList.add("active");
-    document.querySelector(".main").innerHTML='<div style="padding:40px;text-align:center;"><div style="font-size:24px;margin-bottom:12px;">⚠️</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Something went wrong loading the app</div><div style="font-size:13px;color:#6b7280;margin-bottom:20px;">'+err.message+'</div><button onclick="localStorage.clear();location.reload()" style="background:#059669;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Reset &amp; Reload</button></div>';
-  }
+  }catch(e){console.error("goPage error:",e);}
+  // Run payment reminders after UI loads — outside try so boot errors don't suppress it
+  setTimeout(function(){try{window.checkPaymentReminders();}catch(e){console.warn("Reminder check failed:",e);}}, 1800);
 });
 
 // Keyboard shortcuts
 document.addEventListener("keydown",e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key==="p"){e.preventDefault();if(document.getElementById("page-invoice").classList.contains("active"))printInvoice();}
-  if((e.ctrlKey||e.metaKey)&&e.key==="s"){e.preventDefault();const pg=document.querySelector(".page.active")?.id;if(pg==="page-settings")saveWorker();else if(pg==="page-client")saveClient();}
-  if(e.key==="Enter"&&document.getElementById("page-services").classList.contains("active")){
-    const ab=document.getElementById("add-btn");if(ab&&!ab.disabled){e.preventDefault();addSession();}
-  }
+  try{
+    if((e.ctrlKey||e.metaKey)&&e.key==="p"){e.preventDefault();if($("page-invoice")?.classList.contains("active"))window.print();}
+    if((e.ctrlKey||e.metaKey)&&e.key==="s"){e.preventDefault();const pg=document.querySelector(".page.active")?.id;if(pg==="page-settings")saveWorker();else if(pg==="page-client")saveClient();}
+    if(e.key==="Enter"&&$("page-services")?.classList.contains("active")){
+      const ab=$("add-btn");if(ab&&!ab.disabled){e.preventDefault();addSession();}
+    }
+  }catch(err){console.error("keydown error:",err);}
 });
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
@@ -985,12 +718,10 @@ function goPage(name){
     if(fab) fab.classList.toggle("hidden",name!=="services");
     // Nav button highlight
     document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active-tab"));
-    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"],tax:["nav-tax","nav-tax-m"]};
-    if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
+    const navMap={history:"nav-history",report:"nav-report",settings:"nav-settings"};
+    if(navMap[name]){const el=document.getElementById(navMap[name]);if(el)el.classList.add("active-tab");}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
-    if(name==="history") renderHistory();
-    if(name==="tax"){populateTaxFY();renderTax();}
     if(name==="history"){populateHistoryFilter();renderHistory();}
     if(name==="report"){populateReportClients();renderReport();}
   }catch(err){console.error("goPage error:",err);}
@@ -1000,221 +731,6 @@ function toggleSb(){
   const sb=document.getElementById("sb"),t=document.getElementById("sb-tog");
   sb.classList.toggle("slim");
   t.textContent=sb.classList.contains("slim")?"▶":"◀";
-}
-
-// ── Backup / Restore ──────────────────────────────────────────────────────────
-function exportData(){
-  const data={
-    exportedAt:new Date().toISOString(),
-    version:1,
-    worker,
-    clients,
-    invoiceHistory
-  };
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  const date=new Date().toLocaleDateString("en-CA");
-  a.href=url;
-  a.download=`ndis-backup-${date}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast("Backup saved ✓");
-}
-
-function autoBackup(invoiceNum){
-  if(driveToken&&Date.now()<driveTokenExpiry){
-    // Drive connected — save there only, no local download needed
-    saveToDrive(invoiceNum).then(()=>{
-      toast("☁️ Backed up to Google Drive ✓");
-    }).catch(()=>{
-      // Drive failed — fall back to local
-      localBackupDownload(invoiceNum);
-      toast("📁 Drive unavailable — backup saved to Downloads");
-    });
-  } else {
-    localBackupDownload(invoiceNum);
-    toast("📁 Backup saved to Downloads");
-  }
-}
-
-function localBackupDownload(invoiceNum){
-  try{
-    const data=buildBackupData();
-    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    const date=new Date().toLocaleDateString("en-CA");
-    a.href=url;
-    a.download=`ndis-backup-${date}-${(invoiceNum||"inv").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }catch(e){console.warn("Local backup failed:",e);}
-}
-
-// ── Google Drive ──────────────────────────────────────────────────────────────
-const GDRIVE_CLIENT_ID="458867560594-2lf0e6t1omso4aoa1ru6734mjm8uqur3.apps.googleusercontent.com";
-const GDRIVE_SCOPE="https://www.googleapis.com/auth/drive.file";
-let driveToken=null;
-let driveTokenExpiry=0;
-let driveFolderId=null;
-
-function buildBackupData(){
-  return{exportedAt:new Date().toISOString(),version:1,worker,clients,invoiceHistory};
-}
-
-function connectDrive(){
-  return new Promise((resolve,reject)=>{
-    if(!window.google){reject(new Error("Google API not loaded"));return;}
-    const client=google.accounts.oauth2.initTokenClient({
-      client_id:GDRIVE_CLIENT_ID,
-      scope:GDRIVE_SCOPE,
-      callback:(resp)=>{
-        if(resp.error){reject(new Error(resp.error));return;}
-        driveToken=resp.access_token;
-        driveTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
-        ls.set("ndis-drive-connected",true);
-        resolve(driveToken);
-      }
-    });
-    client.requestAccessToken();
-  });
-}
-
-async function ensureToken(){
-  if(driveToken&&Date.now()<driveTokenExpiry) return driveToken;
-  return await connectDrive();
-}
-
-async function ensureDriveFolder(){
-  if(driveFolderId) return driveFolderId;
-  const token=await ensureToken();
-  // Search for existing folder
-  const search=await fetch(
-    "https://www.googleapis.com/drive/v3/files?q=name%3D'NDIS+Invoice+Backups'+and+mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id,name)",
-    {headers:{Authorization:"Bearer "+token}}
-  );
-  const searchData=await search.json();
-  if(searchData.files&&searchData.files.length>0){
-    driveFolderId=searchData.files[0].id;
-    return driveFolderId;
-  }
-  // Create folder
-  const create=await fetch("https://www.googleapis.com/drive/v3/files",{
-    method:"POST",
-    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
-    body:JSON.stringify({name:"NDIS Invoice Backups",mimeType:"application/vnd.google-apps.folder"})
-  });
-  const createData=await create.json();
-  driveFolderId=createData.id;
-  return driveFolderId;
-}
-
-async function saveToDrive(invoiceNum){
-  const token=await ensureToken();
-  const folderId=await ensureDriveFolder();
-  const data=buildBackupData();
-  const date=new Date().toLocaleDateString("en-CA");
-  const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
-  const content=JSON.stringify(data,null,2);
-  const metadata=JSON.stringify({name:filename,parents:[folderId],mimeType:"application/json"});
-  const boundary="ndis_bnd_"+Date.now();
-  const body=
-    "--"+boundary+"\r\n"+
-    "Content-Type: application/json; charset=UTF-8\r\n\r\n"+
-    metadata+"\r\n"+
-    "--"+boundary+"\r\n"+
-    "Content-Type: application/json\r\n\r\n"+
-    content+"\r\n"+
-    "--"+boundary+"--";
-  const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",{
-    method:"POST",
-    headers:{
-      Authorization:"Bearer "+token,
-      "Content-Type":"multipart/related; boundary="+boundary
-    },
-    body
-  });
-  const result=await resp.json();
-  if(!resp.ok){
-    console.error("Drive upload error:",result);
-    throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
-  }
-  console.log("Drive backup saved:",result.name);
-  return result;
-}
-
-async function toggleDriveConnection(){
-  const isConnected=ls.get("ndis-drive-connected")&&driveToken&&Date.now()<driveTokenExpiry;
-  if(isConnected){
-    // Disconnect
-    if(confirm("Disconnect Google Drive?\n\nBackups will still save to your Downloads folder.")){
-      driveToken=null;
-      driveTokenExpiry=0;
-      driveFolderId=null;
-      ls.set("ndis-drive-connected",false);
-      const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
-      toast("Google Drive disconnected");
-    }
-  } else {
-    await connectAndBackupDrive();
-  }
-}
-
-async function connectAndBackupDrive(){
-  try{
-    toast("Connecting to Google Drive...");
-    // Reset any stale state
-    driveToken=null;
-    driveTokenExpiry=0;
-    driveFolderId=null;
-    await connectDrive();
-    await saveToDrive("connection-test");
-    toast("✅ Connected! Backups will now save to Google Drive automatically");
-    const btn=document.getElementById("drive-connect-btn");
-    if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
-  }catch(e){
-    toast("Could not connect to Google Drive");
-    console.warn("Drive connect error:",e);
-    ls.set("ndis-drive-connected",false);
-    const btn=document.getElementById("drive-connect-btn");
-    if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
-  }
-}
-
-function importData(){
-  document.getElementById("import-file-input").value="";
-  document.getElementById("import-file-input").click();
-}
-
-function handleImportFile(input){
-  const file=input.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const data=JSON.parse(e.target.result);
-      if(!data.worker||!data.clients||!data.invoiceHistory){
-        alert("This doesn't look like a valid NDIS Invoice backup file.");return;
-      }
-      if(!confirm(`This will replace all your current data with the backup from ${data.exportedAt?new Date(data.exportedAt).toLocaleDateString("en-AU"):"unknown date"}.\n\nAre you sure?`))return;
-      worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1},...data.worker};
-      clients=data.clients||[];
-      invoiceHistory=data.invoiceHistory||[];
-      ls.set("ndis-worker",worker);
-      ls.set("ndis-clients",clients);
-      ls.set("ndis-history",invoiceHistory);
-      renderSidebar();
-      populateReportMonths();
-      if(!worker.name){populateSettings();goPage("settings");}
-      else goPage("dashboard");
-      toast("Backup restored ✓");
-    }catch(err){
-      alert("Could not read backup file: "+err.message);
-    }
-  };
-  reader.readAsText(file);
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -1270,24 +786,12 @@ function populateSettings(){
   f("s-phone",worker.phone);f("s-bank",worker.bankName);f("s-bsb",worker.bsb);f("s-acc",worker.account);
   f("s-title",worker.title);f("s-address",worker.address);f("s-payable",worker.payableName);
   f("s-prefix",worker.prefix);
-  const gstEl=document.getElementById("s-gst");
-  if(gstEl) gstEl.checked=!!worker.gst;
-  updateGstBadge(!!worker.gst);
-  if(gstEl) gstEl.onchange=()=>updateGstBadge(gstEl.checked);
-}
-function updateGstBadge(on){
-  const badge=document.getElementById("gst-status-badge");
-  const hint=document.getElementById("gst-hint");
-  if(badge){badge.textContent=on?"GST ON":"GST OFF";badge.className="gst-badge"+(on?"":" off");}
-  if(hint) hint.classList.toggle("hidden",!on);
 }
 function saveWorker(){
   const g=id=>document.getElementById(id)?.value?.trim()||"";
-  const gstEl=document.getElementById("s-gst");
   worker={...worker,name:g("s-name"),abn:g("s-abn"),email:g("s-email"),phone:g("s-phone"),
     bankName:g("s-bank"),bsb:g("s-bsb"),account:g("s-acc"),title:g("s-title"),
-    address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix"),
-    gst:gstEl?gstEl.checked:false};
+    address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix")};
   if(!worker.name){alert("Please enter your name or business name.");return;}
   ls.set("ndis-worker",worker);
   const btn=document.getElementById("save-btn");
@@ -1299,8 +803,9 @@ function saveWorker(){
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 function renderDashboard(){
   const nm=worker.name?.split(" ")[0]||"there";
-  document.getElementById("dash-greet").textContent=`Hello, ${nm} 👋`;
+  const greet=document.getElementById("dash-greet");if(greet)greet.textContent=`Hello, ${nm} 👋`;
   const body=document.getElementById("dash-body");
+  if(!body)return;
   if(!clients.length){
     body.innerHTML=`<div class="empty"><div class="empty-icon">🧑‍🤝‍🧑</div><div class="empty-title">No clients yet</div><div class="empty-sub">Add your first NDIS participant to start creating invoices.</div><button class="btn btn-primary" onclick="newClient()">＋ Add First Client</button></div>`;
     return;
@@ -1323,7 +828,9 @@ function renderDashboard(){
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function renderSidebar(){
-  document.getElementById("ci-list").innerHTML=clients.map(c=>`
+  const ciList=document.getElementById("ci-list");
+  if(!ciList)return;
+  ciList.innerHTML=clients.map(c=>`
     <div class="ci-wrap${c.id===activeId?" active":""}" id="cw-${c.id}">
       <div class="ci-row" onclick="openClient('${c.id}')">
         <span class="ci-av">${esc(c.name?c.name[0].toUpperCase():"?")}</span>
@@ -1342,32 +849,25 @@ function renderSidebar(){
 // ── Clients ───────────────────────────────────────────────────────────────────
 function newClient(){
   editId=null;
-  document.getElementById("cl-eyebrow").textContent="New Client";
-  document.getElementById("cl-title").textContent="Add Participant";
-  ["cl-name","cl-ndis","cl-plan-start","cl-plan-end","cl-address","cl-pmorg","cl-pmcontact","cl-pmemail","cl-pmphone","cl-pmaddress","cl-pmsuburb","cl-pmpost","cl-inv-prefix","cl-inv-startnum"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("cl-pmstate").value="NSW";
+  const ey=document.getElementById("cl-eyebrow");if(ey)ey.textContent="New Client";
+  const ti=document.getElementById("cl-title");if(ti)ti.textContent="Add Participant";
+  ["cl-name","cl-ndis","cl-plan-start","cl-plan-end","cl-address","cl-pmorg","cl-pmcontact","cl-pmemail","cl-pmphone","cl-pmaddress","cl-pmsuburb","cl-pmpost","cl-inv-prefix","cl-inv-startnum"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  const stEl=document.getElementById("cl-pmstate");if(stEl)stEl.value="NSW";
   goPage("client");
 }
 function editClient(id){
   const c=clients.find(x=>x.id===id);if(!c)return;
   editId=id;
-  document.getElementById("cl-eyebrow").textContent="Edit Client";
-  document.getElementById("cl-title").textContent=c.name;
-  document.getElementById("cl-name").value=c.name||"";
-  document.getElementById("cl-ndis").value=c.ndisNumber||"";
-  document.getElementById("cl-plan-start").value=c.planStart||"";
-  document.getElementById("cl-plan-end").value=c.planEnd||"";
-  document.getElementById("cl-address").value=c.address||"";
-  document.getElementById("cl-pmorg").value=c.pm?.org||"";
-  document.getElementById("cl-pmcontact").value=c.pm?.contact||"";
-  document.getElementById("cl-pmemail").value=c.pm?.email||"";
-  document.getElementById("cl-pmphone").value=c.pm?.phone||"";
-  document.getElementById("cl-pmaddress").value=c.pm?.address||"";
-  document.getElementById("cl-pmsuburb").value=c.pm?.suburb||"";
-  document.getElementById("cl-pmstate").value=c.pm?.state||"NSW";
-  document.getElementById("cl-pmpost").value=c.pm?.postcode||"";
-  document.getElementById("cl-inv-prefix").value=c.invPrefix||"";
-  document.getElementById("cl-inv-startnum").value=c.invStartNum||"";
+  const sf=(elId,v)=>{const el=document.getElementById(elId);if(el)el.value=v||"";};
+  const st=(elId,v)=>{const el=document.getElementById(elId);if(el)el.textContent=v||"";};
+  st("cl-eyebrow","Edit Client");
+  st("cl-title",c.name);
+  sf("cl-name",c.name);sf("cl-ndis",c.ndisNumber);sf("cl-plan-start",c.planStart);
+  sf("cl-plan-end",c.planEnd);sf("cl-address",c.address);
+  sf("cl-pmorg",c.pm?.org);sf("cl-pmcontact",c.pm?.contact);sf("cl-pmemail",c.pm?.email);
+  sf("cl-pmphone",c.pm?.phone);sf("cl-pmaddress",c.pm?.address);sf("cl-pmsuburb",c.pm?.suburb);
+  const stEl=document.getElementById("cl-pmstate");if(stEl)stEl.value=c.pm?.state||"NSW";
+  sf("cl-pmpost",c.pm?.postcode);sf("cl-inv-prefix",c.invPrefix);sf("cl-inv-startnum",c.invStartNum);
   updateInvPreview();
   goPage("client");
 }
@@ -1449,7 +949,6 @@ function repeatLast(id){
   renderSessions();
   renderClientHistPanel(id);
   goPage("services");
-}
 function loadLastWeek(){
   if(!activeId)return;
   const last=ls.get(`ndis-svc-${activeId}`);
@@ -1466,19 +965,13 @@ function loadLastWeek(){
 }
 
 function resetSessionForm(){
-  document.getElementById("f-date").value="";
-  document.getElementById("f-support").value="";
-  document.getElementById("f-qty").value="";
-  document.getElementById("f-notes").value="";
-  document.getElementById("f-eve").checked=false;
-  document.getElementById("f-gst").checked=false;
-  document.getElementById("day-badge-wrap").innerHTML="";
-  document.getElementById("rate-wrap").innerHTML="";
-  document.getElementById("eve-wrap").classList.add("hidden");
-  document.getElementById("f-support-cat").textContent="";
-  document.getElementById("f-total-hint").textContent="";
-  document.getElementById("add-btn").disabled=true;
-  document.getElementById("qty-lbl").textContent="Hours *";
+  ["f-date","f-support","f-qty","f-notes","f-invnotes"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["f-eve","f-gst"].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ["day-badge-wrap","rate-wrap"].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML="";});
+  ["f-support-cat","f-total-hint"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent="";});
+  const ew=document.getElementById("eve-wrap");if(ew)ew.classList.add("hidden");
+  const ab=document.getElementById("add-btn");if(ab)ab.disabled=true;
+  const ql=document.getElementById("qty-lbl");if(ql)ql.textContent="Hours *";
 }
 
 // ── Session form ──────────────────────────────────────────────────────────────
@@ -1638,84 +1131,6 @@ function renderClientHistPanel(clientId){
 }
 
 // ── Invoice ───────────────────────────────────────────────────────────────────
-function printInvoice(){
-  // Set document title to invoice number so PDF saves with that name
-  const invNum=document.getElementById("inv-num-head")?.textContent||"Invoice";
-  const prevTitle=document.title;
-  document.title=invNum;
-  window.print();
-  // Restore title after print dialog closes
-  setTimeout(()=>{document.title=prevTitle;},1000);
-}
-
-function emailInvoice(){
-  // Get current invoice details from the last history entry
-  const entry=invoiceHistory[invoiceHistory.length-1];
-  if(!entry){toast("No invoice to email");return;}
-  const cl=clients.find(x=>x.id===entry.clientId)||{};
-  const pmEmail=cl.pm?.email||"";
-  const invoiceNum=entry.invoiceNum||"Invoice";
-  const workerName=worker.name||"Support Worker";
-  const total=new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(entry.total||0);
-  const date=entry.date?new Date(entry.date+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}):"";
-
-  const subject=encodeURIComponent(`${invoiceNum} — NDIS Support Services — ${workerName}`);
-  const body=encodeURIComponent(
-`Hi${cl.pm?.contact?" "+cl.pm.contact:""},
-
-Please find attached ${invoiceNum} for NDIS support services provided to ${cl.name||"participant"}.
-
-Invoice number: ${invoiceNum}
-Date: ${date}
-Total: ${total}
-Worker: ${workerName}${worker.abn?"\nABN: "+worker.abn:""}
-
-Please don't hesitate to contact me if you have any questions.
-
-Kind regards,
-${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`
-  );
-
-  // Auto-download PDF, then open Gmail
-  toast("📄 Generating PDF...");
-  const entryId=entry.id;
-  setTimeout(async()=>{
-    try{
-      const el=document.getElementById("inv-render");
-      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:"#ffffff"});
-      const{jsPDF}=window.jspdf;
-      const pdf=new jsPDF("p","mm","a4");
-      const w=pdf.internal.pageSize.getWidth();
-      const h=(canvas.height*w)/canvas.width;
-      pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h);
-      pdf.save(`${invoiceNum}.pdf`);
-      toast("📄 PDF saved — now attach it in Gmail");
-    }catch(e){
-      console.warn("PDF gen failed:",e);
-      toast("⚠ Could not auto-generate PDF — use Print/PDF instead");
-    }
-    // Open Gmail compose
-    const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-    window.open(gmailUrl,"_blank");
-    // Ask if they actually sent it
-    setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
-  },200);
-}
-
-function showSentConfirm(entryId,invoiceNum){
-  const modal=document.getElementById("sent-confirm-modal");
-  if(!modal)return;
-  document.getElementById("sent-confirm-num").textContent=invoiceNum;
-  document.getElementById("sent-confirm-yes").onclick=()=>{
-    invoiceHistory=invoiceHistory.map(h=>h.id===entryId?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);
-    ls.set("ndis-history",invoiceHistory);
-    modal.style.display="none";
-    toast("✅ Marked as sent");
-  };
-  document.getElementById("sent-confirm-no").onclick=()=>{modal.style.display="none";};
-  modal.style.display="flex";
-}
-
 function goInvoice(){
   if(!sessions.length)return;
   ls.set(`ndis-svc-${activeId}`,sessions);
@@ -1729,8 +1144,9 @@ function goInvoice(){
   // Save to history
   const histEntry={
     id:uid(),clientId:activeId,clientName:cl.name||"",
-    invoiceNum:userInvNum,date:new Date().toLocaleDateString("en-CA"),
-    subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes
+    invoiceNum:userInvNum,date:new Date().toISOString().slice(0,10),
+    subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes,
+    paid:null, paidDate:null  // null=unknown, true=paid, false=unpaid
   };
   invoiceHistory=[histEntry,...invoiceHistory];
   ls.set("ndis-history",invoiceHistory);
@@ -1742,8 +1158,6 @@ function goInvoice(){
   buildInvoice(histEntry);
   document.getElementById("inv-num-head").textContent=userInvNum;
   goPage("invoice");
-  // Auto-backup silently on every invoice
-  setTimeout(()=>autoBackup(userInvNum),600);
 }
 
 function buildInvoice(entry){
@@ -1828,7 +1242,7 @@ function buildInvoice(entry){
               <td class="inv-th-hours">Total hours</td>
               <td class="inv-hours-val">${totalHours>0?totalHours:""}</td>
               <td></td>
-              <td style="text-align:right;font-size:12px;font-weight:600;padding:7px 6px;">Subtotal</td>
+              <td style="text-align:right;font-size:12px;font-weight:600;padding:7px 6px;">${entry.useGst?"Subtotal":"Subtotal"}</td>
               <td class="amt">${aud(entry.subtotal)}</td>
             </tr>
             ${gstRows}
@@ -1840,10 +1254,7 @@ function buildInvoice(entry){
         ${worker.bsb?"BSB: "+esc(worker.bsb)+"<br/>":""}
         ${worker.account?"ACC#: "+esc(worker.account):""}
       </div>
-      <div class="inv-disc-bar">
-        ${entry.useGst?"GST (10%) applicable.":"No GST applicable."}
-        &nbsp;·&nbsp;Rates: NDIS PAPL 2025–26 v1.1
-      </div>
+      <div class="inv-disc-bar">${entry.useGst?"GST of "+aud(entry.gst)+" included at 10%":"No GST applicable."}</div>
     </div>
   `;
 }
@@ -1865,10 +1276,8 @@ function renderHistory(){
     body.innerHTML=`<div class="hist-empty">No invoices found. Generate your first invoice to see it here.</div>`;
     return;
   }
-  const statusLabel={unpaid:"Unpaid",sent:"Sent",paid:"Paid ✓",overdue:"Overdue"};
-  body.innerHTML=`<div class="hist-list">${list.map(h=>{
-    const status=h.payStatus||"unpaid";
-    return `<div class="hist-row">
+  body.innerHTML=`<div class="hist-list">${list.map(h=>`
+    <div class="hist-row">
       <div>
         <div class="hist-num">${esc(h.invoiceNum)}</div>
         <div class="hist-date">${fmtD(h.date)}</div>
@@ -1876,44 +1285,27 @@ function renderHistory(){
       <div>
         <div class="hist-client">${esc(h.clientName)}</div>
         <div class="hist-date">${h.sessions.length} session${h.sessions.length!==1?"s":""} · ${h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0)} hrs</div>
-        <div class="hist-row-status">
-          <span class="pay-badge ${status}">${statusLabel[status]||"Unpaid"}</span>
-          ${h.payDate?`<span style="font-size:11px;color:var(--faint)">Paid ${fmtShort(h.payDate)}</span>`:""}
-          ${h.remittanceRef?`<span style="font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace">${esc(h.remittanceRef)}</span>`:""}
-        </div>
       </div>
       <div style="text-align:right;">
         <div class="hist-amt">${aud(h.total)}</div>
         ${h.useGst?`<span class="hist-badge gst">+GST</span>`:""}
+        <div style="margin-top:4px;">
+          ${h.paid===true
+            ?`<span class="hist-badge" style="background:#d1fae5;color:#065f46;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;">✓ Paid${h.paidDate?" "+fmtShort(h.paidDate):""}</span>`
+            :h.paid===false
+            ?`<span class="hist-badge" style="background:#fee2e2;color:#991b1b;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;">Unpaid</span>`
+            :`<span class="hist-badge" style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;">Awaiting</span>`
+          }
+        </div>
       </div>
       <div class="hist-actions">
         <button class="btn btn-primary btn-sm" onclick="viewHistInvoice('${h.id}')">View</button>
-        <button class="btn btn-soft btn-sm" onclick="markPayment('${h.id}')">💰 Payment</button>
+        ${h.paid!==true?`<button class="btn btn-soft btn-sm" onclick="markPaid('${h.id}')" style="background:#d1fae5;color:#065f46;border-color:#6ee7b7;">✓ Paid</button>`:`<button class="btn btn-soft btn-sm" onclick="markUnpaid('${h.id}')" style="color:#991b1b;">↩ Unpaid</button>`}
         <button class="btn btn-soft btn-sm" onclick="reloadFromHistory('${h.id}')">✏️ Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteHistEntry('${h.id}')">🗑</button>
       </div>
-    </div>`;
-  }).join("")}</div>`;
-}
-
-function markPayment(id){
-  const h=invoiceHistory.find(x=>x.id===id);if(!h)return;
-  const current=h.payStatus||"unpaid";
-  const options=["unpaid","sent","paid","overdue"];
-  const labels={"unpaid":"Unpaid","sent":"Sent to plan manager","paid":"Paid","overdue":"Overdue"};
-  const choice=prompt(`Update payment status for ${h.invoiceNum}:\n\n0: Unpaid\n1: Sent to plan manager\n2: Paid\n3: Overdue\n\nEnter number (current: ${labels[current]||current}):`);
-  if(choice===null)return;
-  const newStatus=options[parseInt(choice)]||current;
-  let payDate=h.payDate||"";
-  let remittanceRef=h.remittanceRef||"";
-  if(newStatus==="paid"){
-    payDate=prompt("Payment date (DD/MM/YYYY or leave blank for today):")||new Date().toLocaleDateString("en-AU");
-    remittanceRef=prompt("Remittance reference (paste from email, or leave blank):")||"";
-  }
-  invoiceHistory=invoiceHistory.map(x=>x.id===id?{...x,payStatus:newStatus,payDate:newStatus==="paid"?payDate:x.payDate,remittanceRef:newStatus==="paid"?remittanceRef:x.remittanceRef}:x);
-  ls.set("ndis-history",invoiceHistory);
-  renderHistory();
-  toast(`Invoice marked as ${labels[newStatus]}`);
+    </div>
+  `).join("")}</div>`;
 }
 
 function viewHistInvoice(id){
@@ -1950,7 +1342,92 @@ function deleteHistEntry(id){
   toast("Invoice deleted");
 }
 
+function markPaid(id){
+  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,paid:true,paidDate:new Date().toISOString().slice(0,10)}:h);
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast("Marked as paid ✓");
+}
+function markUnpaid(id){
+  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,paid:false,paidDate:null}:h);
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast("Marked as unpaid");
+}
+
+// ── Payment Reminder System ───────────────────────────────────────────────────
+window.checkPaymentReminders = function checkPaymentReminders(){
+  const now=new Date();
+  const reminders=ls.get("ndis-reminders")||{}; // {invoiceId: {lastAsked, dismissed}}
+  // Find invoices that are unpaid or unknown and old enough to ask about
+  const toAsk=invoiceHistory.filter(h=>{
+    if(h.paid===true) return false; // already paid, never ask
+    const submitted=new Date(h.date+"T12:00:00");
+    const daysSince=Math.floor((now-submitted)/(1000*60*60*24));
+    const r=reminders[h.id]||{};
+    if(r.dismissed) return false; // user said no and we respect that... actually we re-ask every session per spec
+    const lastAsked=r.lastAsked?new Date(r.lastAsked):null;
+    const daysSinceAsked=lastAsked?Math.floor((now-lastAsked)/(1000*60*60*24)):999;
+    // First ask: 7 days after submission
+    // Second ask: 10 days after submission (if not asked yet or it's been a while)
+    // After that: every session (every app open = every time)
+    if(h.paid===false){
+      // Was told unpaid - ask every session
+      return daysSinceAsked>=1; // re-ask every day/session
+    }
+    // Unknown (null) - ask at 7 days, then 10 days, then every session
+    if(daysSince>=7){
+      if(!lastAsked) return true; // never asked, ask now
+      if(daysSinceAsked>=1) return true; // ask every session once past 10 days
+    }
+    return false;
+  });
+  if(toAsk.length>0) showPaymentReminder(toAsk[0]);
+}
+
+function showPaymentReminder(h){
+  const reminders=ls.get("ndis-reminders")||{};
+  reminders[h.id]={lastAsked:new Date().toISOString().slice(0,10)};
+  ls.set("ndis-reminders",reminders);
+  const modal=document.createElement("div");
+  modal.className="modal-backdrop";
+  modal.innerHTML=`
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-title">💳 Payment Received?</div>
+      <div class="modal-sub">Invoice <strong>${esc(h.invoiceNum)}</strong> for ${esc(h.clientName)} was submitted on ${fmtD(h.date)} (${aud(h.total)}).<br/><br/>Has this invoice been paid?</div>
+      <div class="modal-btns">
+        <button class="btn btn-ghost" onclick="reminderNo('${h.id}',this)">Not yet</button>
+        <button class="btn btn-primary" onclick="reminderYes('${h.id}',this)" style="background:#059669;">✓ Yes, paid!</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function reminderYes(id, btn){
+  markPaidSilent(id);
+  btn.closest(".modal-backdrop").remove();
+  toast("Invoice marked as paid ✓");
+}
+function reminderNo(id, btn){
+  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,paid:false}:h);
+  ls.set("ndis-history",invoiceHistory);
+  btn.closest(".modal-backdrop").remove();
+}
+function markPaidSilent(id){
+  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,paid:true,paidDate:new Date().toISOString().slice(0,10)}:h);
+  ls.set("ndis-history",invoiceHistory);
+}
+
 function clearAllHistory(){
+  const filterClient=document.getElementById("hist-filter-client")?.value||"";
+  const label=filterClient?clients.find(x=>x.id===filterClient)?.name||"this client":"ALL clients";
+  if(!confirm(`Clear all invoice history for ${label}? This cannot be undone.`))return;
+  if(filterClient) invoiceHistory=invoiceHistory.filter(h=>h.clientId!==filterClient);
+  else invoiceHistory=[];
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast("History cleared");
+}
   const filterClient=document.getElementById("hist-filter-client")?.value||"";
   const label=filterClient?clients.find(x=>x.id===filterClient)?.name||"this client":"ALL clients";
   if(!confirm(`Clear all invoice history for ${label}? This cannot be undone.`))return;
@@ -1962,187 +1439,24 @@ function clearAllHistory(){
 }
 
 // ── Monthly Report ────────────────────────────────────────────────────────────
-// ── Onboarding ────────────────────────────────────────────────────────────────
-function finishOnboarding(){
-  worker={...worker,onboarded:true};
-  ls.set("ndis-worker",worker);
-  goPage("settings");
-  toast("Let's start with your profile details");
-}
-
-// ── Tax Time ──────────────────────────────────────────────────────────────────
-function getFY(dateStr){
-  if(!dateStr)return null;
-  const d=new Date(dateStr+"T12:00:00");
-  const y=d.getFullYear(),m=d.getMonth();
-  return m>=6?`${y}-${y+1}`:`${y-1}-${y}`;
-}
-function populateTaxFY(){
-  const sel=document.getElementById("tax-fy");
-  const clientSel=document.getElementById("tax-client");
-  if(!sel)return;
-  const fys=new Set();
-  invoiceHistory.forEach(h=>{const fy=getFY(h.date);if(fy)fys.add(fy);});
-  // Add current FY
-  const now=new Date();
-  const curFY=now.getMonth()>=6?`${now.getFullYear()}-${now.getFullYear()+1}`:`${now.getFullYear()-1}-${now.getFullYear()}`;
-  fys.add(curFY);
-  const sorted=[...fys].sort((a,b)=>b.localeCompare(a));
-  const cur=sel.value||curFY;
-  sel.innerHTML=sorted.map(fy=>`<option value="${fy}">FY ${fy}</option>`).join("");
-  sel.value=cur;
-  // Populate client filter
-  const curClient=clientSel?.value||"";
-  if(clientSel){
-    clientSel.innerHTML='<option value="">All clients</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
-    clientSel.value=curClient;
-  }
-}
-function renderTax(){
-  const fy=document.getElementById("tax-fy")?.value||"";
-  const filterClient=document.getElementById("tax-client")?.value||"";
-  const body=document.getElementById("tax-body");
-  if(!body)return;
-  let list=invoiceHistory.filter(h=>getFY(h.date)===fy);
-  if(filterClient)list=list.filter(h=>h.clientId===filterClient);
-  if(!list.length){
-    body.innerHTML=`<div class="empty" style="padding:40px;"><div class="empty-icon">🧾</div><div class="empty-title">No invoices for FY ${fy}</div><div class="empty-sub">Invoices you generate will appear here for tax reporting.</div></div>`;
-    return;
-  }
-  const totalIncome=list.reduce((s,h)=>s+h.total,0);
-  const totalSubtotal=list.reduce((s,h)=>s+(h.subtotal||h.total),0);
-  const totalGst=list.reduce((s,h)=>s+(h.gst||0),0);
-  const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
-  const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
-  const paidList=list.filter(h=>h.payStatus==="paid");
-  const unpaidList=list.filter(h=>h.payStatus!=="paid");
-  const totalPaid=paidList.reduce((s,h)=>s+h.total,0);
-  const totalUnpaid=unpaidList.reduce((s,h)=>s+h.total,0);
-  // By plan manager
-  const byPM={};
-  list.forEach(h=>{
-    const cl=clients.find(x=>x.id===h.clientId);
-    const pm=cl?.pm?.org||"Unknown Plan Manager";
-    if(!byPM[pm])byPM[pm]={total:0,invoices:0,paid:0,unpaid:0};
-    byPM[pm].total+=h.total;
-    byPM[pm].invoices++;
-    if(h.payStatus==="paid")byPM[pm].paid+=h.total;
-    else byPM[pm].unpaid+=h.total;
-  });
-  body.innerHTML=`
-    <div class="report-grid" style="margin-bottom:16px;">
-      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Total Income</div></div>
-      ${totalGst>0?`<div class="stat-card"><div class="stat-icon">📑</div><div class="stat-val">${aud(totalGst)}</div><div class="stat-lbl">GST Collected</div></div>`:""}
-      <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val">${aud(totalPaid)}</div><div class="stat-lbl">Received</div></div>
-      <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val">${aud(totalUnpaid)}</div><div class="stat-lbl">Outstanding</div></div>
-      <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val">${totalHours} hrs</div><div class="stat-lbl">Hours Worked</div></div>
-      ${totalKm>0?`<div class="stat-card"><div class="stat-icon">🚗</div><div class="stat-val">${totalKm} km</div><div class="stat-lbl">Travel (${aud(totalKm*0.99)})</div></div>`:""}
-      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${list.length}</div><div class="stat-lbl">Invoices</div></div>
-    </div>
-
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-hd"><span class="card-hd-icon">🏢</span> Income by Plan Manager</div>
-      <table class="breakdown-table">
-        <thead><tr><th>Plan Manager</th><th class="r">Invoices</th><th class="r">Received</th><th class="r">Outstanding</th><th class="r">Total</th></tr></thead>
-        <tbody>
-          ${Object.entries(byPM).sort((a,b)=>b[1].total-a[1].total).map(([pm,v])=>`
-            <tr>
-              <td>${esc(pm)}</td>
-              <td class="r">${v.invoices}</td>
-              <td class="r" style="color:var(--green-d)">${aud(v.paid)}</td>
-              <td class="r" style="color:var(--amber)">${aud(v.unpaid)}</td>
-              <td class="r" style="font-weight:600">${aud(v.total)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-
-    ${totalGst>0?`
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-hd"><span class="card-hd-icon">📑</span> GST Summary</div>
-      <table class="breakdown-table">
-        <thead><tr><th>Quarter</th><th class="r">Invoices</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th></tr></thead>
-        <tbody>
-          ${["Q1 (Jul–Sep)","Q2 (Oct–Dec)","Q3 (Jan–Mar)","Q4 (Apr–Jun)"].map((qLabel,qi)=>{
-            const qMonths=[[6,7,8],[9,10,11],[0,1,2],[3,4,5]][qi];
-            const qList=list.filter(h=>{const m=new Date(h.date+"T12:00:00").getMonth();return qMonths.includes(m);});
-            if(!qList.length)return"";
-            const qSub=qList.reduce((s,h)=>s+(h.subtotal||h.total),0);
-            const qGst=qList.reduce((s,h)=>s+(h.gst||0),0);
-            const qTot=qList.reduce((s,h)=>s+h.total,0);
-            return`<tr><td>${qLabel}</td><td class="r">${qList.length}</td><td class="r">${aud(qSub)}</td><td class="r" style="color:var(--green-d)">${aud(qGst)}</td><td class="r" style="font-weight:600">${aud(qTot)}</td></tr>`;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>`:""}
-
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-hd"><span class="card-hd-icon">📋</span> All Invoices — FY ${esc(fy)}</div>
-      <table class="breakdown-table">
-        <thead><tr><th>Invoice</th><th>Client</th><th class="r">Date</th><th class="r">Status</th><th class="r">Total</th></tr></thead>
-        <tbody>
-          ${list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{
-            const statusColors={paid:"color:var(--green-d)",unpaid:"color:var(--amber)",overdue:"color:var(--red)",sent:"color:#1e40af"};
-            return`<tr>
-              <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${esc(h.invoiceNum)}</td>
-              <td>${esc(h.clientName)}</td>
-              <td class="r">${fmtShort(h.date)}</td>
-              <td class="r" style="font-size:11px;font-weight:600;${statusColors[h.payStatus||"unpaid"]||""}">${h.payStatus==="paid"?"Paid":h.payStatus==="sent"?"Sent":h.payStatus==="overdue"?"Overdue":"Unpaid"}</td>
-              <td class="r" style="font-weight:600">${aud(h.total)}</td>
-            </tr>`;
-          }).join("")}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="tax-export-row">
-      <button class="btn btn-soft" onclick="exportTaxCSV('${esc(fy)}')">📥 Export CSV for Accountant</button>
-    </div>
-  `;
-}
-
-function exportTaxCSV(fy){
-  const filterClient=document.getElementById("tax-client")?.value||"";
-  let list=invoiceHistory.filter(h=>getFY(h.date)===fy);
-  if(filterClient)list=list.filter(h=>h.clientId===filterClient);
-  const rows=[
-    ["Invoice Number","Date","Client","Plan Manager","Hours","KM","Subtotal","GST","Total","Status","Payment Date","Remittance Ref"],
-    ...list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{
-      const cl=clients.find(x=>x.id===h.clientId);
-      const hrs=h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);
-      const km=h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0);
-      return[h.invoiceNum,h.date,h.clientName,cl?.pm?.org||"",hrs,km,(h.subtotal||h.total).toFixed(2),(h.gst||0).toFixed(2),h.total.toFixed(2),h.payStatus||"unpaid",h.payDate||"",h.remittanceRef||""];
-    })
-  ];
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob=new Blob([csv],{type:"text/csv"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download=`ndis-tax-FY${fy}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast("CSV exported ✓");
-}
-
 function populateReportMonths(){
   const sel=document.getElementById("rpt-month");
+  if(!sel)return;
   const months=new Set();
   invoiceHistory.forEach(h=>{if(h.date)months.add(h.date.slice(0,7));});
-  // Always include current and last 12 months
   for(let i=0;i<13;i++){
     const d=new Date();d.setMonth(d.getMonth()-i);
     months.add(d.toISOString().slice(0,7));
   }
   const sorted=[...months].sort((a,b)=>b.localeCompare(a));
-  const cur=sel.value||new Date().toLocaleDateString("en-CA").slice(0,7);
+  const cur=sel.value||new Date().toISOString().slice(0,7);
   sel.innerHTML=sorted.map(m=>`<option value="${m}">${fmtMonthYear(m+"-01")}</option>`).join("");
   sel.value=cur;
 }
 
 function populateReportClients(){
   const sel=document.getElementById("rpt-client");
+  if(!sel)return;
   const cur=sel.value;
   sel.innerHTML='<option value="">All clients</option>'+
     clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
@@ -2150,9 +1464,10 @@ function populateReportClients(){
 }
 
 function renderReport(){
-  const month=document.getElementById("rpt-month")?.value||new Date().toLocaleDateString("en-CA").slice(0,7);
+  const month=document.getElementById("rpt-month")?.value||new Date().toISOString().slice(0,7);
   const filterClient=document.getElementById("rpt-client")?.value||"";
   const body=document.getElementById("rpt-body");
+  if(!body)return;
 
   let list=invoiceHistory.filter(h=>h.date&&h.date.startsWith(month));
   if(filterClient) list=list.filter(h=>h.clientId===filterClient);
@@ -2162,9 +1477,13 @@ function renderReport(){
     return;
   }
 
-  const totalIncome=list.reduce((s,h)=>s+h.total,0);
-  const totalSubtotal=list.reduce((s,h)=>s+h.subtotal,0);
-  const totalGst=list.reduce((s,h)=>s+(h.gst||0),0);
+  const paidList=list.filter(h=>h.paid===true);
+  const unpaidList=list.filter(h=>h.paid!==true);
+
+  const totalIncome=paidList.reduce((s,h)=>s+h.total,0);
+  const totalSubtotal=paidList.reduce((s,h)=>s+h.subtotal,0);
+  const totalGst=paidList.reduce((s,h)=>s+(h.gst||0),0);
+  const totalPending=unpaidList.reduce((s,h)=>s+h.total,0);
   const totalSessions=list.reduce((s,h)=>s+h.sessions.length,0);
   const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
   const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
@@ -2190,13 +1509,14 @@ function renderReport(){
 
   body.innerHTML=`
     <div class="report-grid">
-      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Total Income</div></div>
+      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Income Received (paid)</div></div>
+      ${totalPending>0?`<div class="stat-card" style="border-color:#fde68a;"><div class="stat-icon">⏳</div><div class="stat-val" style="color:#92400e;">${aud(totalPending)}</div><div class="stat-lbl">Awaiting Payment</div></div>`:""}
       ${totalGst>0?`<div class="stat-card"><div class="stat-icon">📑</div><div class="stat-val">${aud(totalGst)}</div><div class="stat-lbl">GST Collected</div></div>`:""}
       <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val">${totalHours}</div><div class="stat-lbl">Hours Worked</div></div>
       ${totalKm>0?`<div class="stat-card"><div class="stat-icon">🚗</div><div class="stat-val">${totalKm} km</div><div class="stat-lbl">Travel</div></div>`:""}
       <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-val">${totalSessions}</div><div class="stat-lbl">Sessions</div></div>
-      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${list.length}</div><div class="stat-lbl">Invoices</div></div>
-      ${totalHours>0?`<div class="stat-card"><div class="stat-icon">📈</div><div class="stat-val">${aud(totalSubtotal/totalHours)}</div><div class="stat-lbl">Avg Rate/Hr</div></div>`:""}
+      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${paidList.length}/${list.length}</div><div class="stat-lbl">Invoices Paid</div></div>
+      ${totalHours>0&&totalSubtotal>0?`<div class="stat-card"><div class="stat-icon">📈</div><div class="stat-val">${aud(totalSubtotal/totalHours)}</div><div class="stat-lbl">Avg Rate/Hr</div></div>`:""}
     </div>
 
     <div class="card" style="margin-bottom:14px;">
@@ -2250,100 +1570,6 @@ function renderReport(){
     </div>
   `;
 }
-// ── Drive reconnect modal ─────────────────────────────────────────────────────
-async function driveModalConnect(){
-  const modal=document.getElementById("drive-reconnect-modal");
-  if(modal) modal.style.display="none";
-  await connectAndBackupDrive();
-}
-function driveModalSkip(){
-  const modal=document.getElementById("drive-reconnect-modal");
-  if(modal) modal.style.display="none";
-  // Don't forget — ask again next session
-}
-
-// ── Payment Reminders ─────────────────────────────────────────────────────────
-function checkPaymentReminders(){
-  const today=new Date();
-  const overdue=invoiceHistory.filter(h=>{
-    if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
-    if(h.payStatus!=="sent") return false;
-    const sent=new Date((h.sentDate||h.date)+"T12:00:00");
-    return (today-sent)/(1000*60*60*24)>=3;
-  });
-  if(!overdue.length) return;
-  const list=document.getElementById("pay-remind-list");
-  if(!list) return;
-  list.innerHTML=overdue.map(h=>`
-    <div style="background:var(--bg);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(h.invoiceNum)}</div>
-        <div style="font-size:11px;color:var(--sub);">${esc(h.clientName)} · ${aud(h.total)}</div>
-        <div style="font-size:11px;color:var(--faint);">Sent ${fmtShort(h.sentDate||h.date)}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn btn-primary btn-sm" onclick="remindMarkPaid('${h.id}')">✓ Paid</button>
-        <button class="btn btn-ghost btn-sm" onclick="remindSnooze('${h.id}')">Later</button>
-      </div>
-    </div>
-  `).join("");
-  document.getElementById("pay-remind-modal").style.display="flex";
-}
-function remindMarkPaid(id){
-  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
-  ls.set("ndis-history",invoiceHistory);
-  document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]")?.remove();
-  toast("💰 Marked as paid ✓");
-  if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
-}
-function remindSnooze(id){
-  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
-  ls.set("ndis-history",invoiceHistory);
-  document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]")?.remove();
-  if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
-}
-function closePayReminder(){
-  document.getElementById("pay-remind-modal").style.display="none";
-}
-
 </script>
-
-    <!-- ── DRIVE RECONNECT MODAL ── -->
-    <div id="drive-reconnect-modal" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
-      <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);text-align:center;">
-        <div style="font-size:32px;margin-bottom:10px;">☁️</div>
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Connect Google Drive</div>
-        <div style="font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.6;">Your invoices back up automatically to Google Drive. Connect now so nothing gets lost.</div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-primary" style="flex:1;" onclick="driveModalConnect()">Connect Drive</button>
-          <button class="btn btn-ghost" style="flex:1;" onclick="driveModalSkip()">Not now</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── SENT CONFIRM MODAL ── -->
-    <div id="sent-confirm-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:16px;">
-      <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);text-align:center;">
-        <div style="font-size:32px;margin-bottom:10px;">📨</div>
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Did you send it?</div>
-        <div style="font-size:13px;color:var(--sub);margin-bottom:22px;"><strong id="sent-confirm-num"></strong> — did you attach the PDF and send the email?</div>
-        <div style="display:flex;gap:10px;">
-          <button id="sent-confirm-yes" class="btn btn-primary" style="flex:1;">Yes, sent ✓</button>
-          <button id="sent-confirm-no" class="btn btn-ghost" style="flex:1;">Not yet</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── PAYMENT REMINDER MODAL ── -->
-    <div id="pay-remind-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
-      <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);">
-        <div style="font-size:28px;text-align:center;margin-bottom:6px;">💰</div>
-        <div style="font-size:17px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px;">Payment check-in</div>
-        <div style="font-size:13px;color:var(--sub);text-align:center;margin-bottom:20px;">Have any of these invoices been paid?</div>
-        <div id="pay-remind-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;"></div>
-        <button class="btn btn-ghost" style="width:100%;" onclick="closePayReminder()">Done</button>
-      </div>
-    </div>
-
 </body>
 </html>
