@@ -433,215 +433,25 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
     });
   }
 })();
-// ── Invoice Scanner ───────────────────────────────────────────────────────────
-let scanExtracted = null;
-
-function openScanModal(){
-  document.getElementById("scan-modal").style.display="flex";
-  document.getElementById("scan-result").style.display="none";
-  document.getElementById("scan-status").style.display="none";
-  document.getElementById("scan-preview").style.display="none";
-  document.getElementById("scan-file-input").value="";
-  // Populate client dropdown
-  const sel=document.getElementById("sc-client");
-  sel.innerHTML='<option value="">— select client —</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
-}
-
-function closeScanModal(){
-  document.getElementById("scan-modal").style.display="none";
-  scanExtracted=null;
-}
-
-async function handleScanFile(file){
-  if(!file) return;
-  const status=document.getElementById("scan-status");
-  const result=document.getElementById("scan-result");
-  const preview=document.getElementById("scan-preview");
-  result.style.display="none";
-
-  // Show preview for images
-  if(file.type.startsWith("image/")){
-    const url=URL.createObjectURL(file);
-    document.getElementById("scan-preview-img").src=url;
-    preview.style.display="block";
-  } else {
-    preview.style.display="none";
-  }
-
-  status.style.display="block";
-  status.innerHTML="🔍 Reading invoice with AI...";
-
-  try {
-    // Convert file to base64
-    const base64 = await new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onload=()=>res(reader.result.split(",")[1]);
-      reader.onerror=rej;
-      reader.readAsDataURL(file);
-    });
-
-    const mediaType = file.type === "application/pdf" ? "application/pdf" : file.type || "image/jpeg";
-
-    const response = await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
-        messages:[{
-          role:"user",
-          content:[
-            {
-              type: mediaType === "application/pdf" ? "document" : "image",
-              source:{type:"base64", media_type:mediaType, data:base64}
-            },
-            {
-              type:"text",
-              text:`Extract all invoice details from this invoice image. Return ONLY valid JSON, no other text, in this exact format:
-{
-  "invoiceNum": "string",
-  "date": "YYYY-MM-DD",
-  "clientName": "string",
-  "subtotal": number,
-  "gstAmount": number,
-  "total": number,
-  "sessions": [
-    {
-      "description": "string",
-      "itemNumber": "string",
-      "date": "YYYY-MM-DD",
-      "qty": number,
-      "rate": number,
-      "amount": number
-    }
-  ]
-}
-For date, convert DD/MM/YYYY to YYYY-MM-DD. If GST not present, set gstAmount to 0. If a field is not found, use empty string or 0.`
-            }
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    const text = data.content?.map(b=>b.text||"").join("") || "";
-
-    // Parse JSON from response
-    let extracted;
-    try {
-      const clean = text.replace(/```json|```/g,"").trim();
-      extracted = JSON.parse(clean);
-    } catch(e) {
-      throw new Error("Could not parse AI response — try a clearer photo");
-    }
-
-    scanExtracted = extracted;
-
-    // Populate form fields
-    document.getElementById("sc-invnum").value = extracted.invoiceNum || "";
-    document.getElementById("sc-date").value = extracted.date || "";
-    document.getElementById("sc-subtotal").value = extracted.subtotal || "";
-    document.getElementById("sc-total").value = extracted.total || "";
-
-    // Try to match client name
-    const matched = clients.find(c=>c.name.toLowerCase().includes((extracted.clientName||"").toLowerCase().split(" ")[0]));
-    if(matched) document.getElementById("sc-client").value = matched.id;
-
-    // Show session lines
-    const sessWrap = document.getElementById("sc-sessions-wrap");
-    if(extracted.sessions?.length){
-      sessWrap.innerHTML=`<div style="font-size:12px;font-weight:600;color:var(--sub);margin-bottom:6px;">Line items (${extracted.sessions.length}):</div>`+
-        extracted.sessions.map((s,i)=>`
-          <div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px;">
-            <div style="font-weight:600;color:var(--text);">${esc(s.description||"")}</div>
-            <div style="color:var(--faint);font-family:'IBM Plex Mono',monospace;font-size:10px;">${esc(s.itemNumber||"")} · ${s.date||""} · ${s.qty} × $${s.rate} = $${s.amount}</div>
-          </div>`).join("");
-    } else {
-      sessWrap.innerHTML="";
-    }
-
-    status.innerHTML="✅ Invoice read successfully — review and save below";
-    result.style.display="block";
-
-  } catch(err) {
-    status.innerHTML=`❌ ${err.message||"Could not read invoice — try a clearer image"}`;
-    console.error("Scan error:",err);
-  }
-}
-
-function confirmScanImport(){
-  const clientId = document.getElementById("sc-client").value;
-  const invoiceNum = document.getElementById("sc-invnum").value.trim();
-  const dateVal = document.getElementById("sc-date").value;
-  const subtotal = parseFloat(document.getElementById("sc-subtotal").value)||0;
-  const total = parseFloat(document.getElementById("sc-total").value)||0;
-  const notes = document.getElementById("sc-notes").value.trim();
-
-  if(!invoiceNum){alert("Please enter an invoice number.");return;}
-  if(!clientId){alert("Please select the client.");return;}
-  if(!dateVal){alert("Please enter the invoice date.");return;}
-
-  const cl = clients.find(x=>x.id===clientId)||{};
-  const gstAmt = parseFloat(document.getElementById("sc-total").value||0) - subtotal;
-
-  // Build session objects from extracted data
-  const sessions = (scanExtracted?.sessions||[]).map(s=>({
-    id:uid(),
-    date:s.date||dateVal,
-    dayType:"weekday",
-    supportId:"community",
-    description:s.description||"Imported session",
-    category:"Community",
-    itemNumber:s.itemNumber||"",
-    unit:"hr",
-    qty:s.qty||1,
-    rate:s.rate||0,
-    amount:s.amount||(s.qty*s.rate)||0,
-    notes:""
-  }));
-
-  // If no sessions extracted, create a single summary entry
-  const finalSessions = sessions.length ? sessions : [{
-    id:uid(), date:dateVal, dayType:"weekday", supportId:"community",
-    description:"Imported invoice", category:"Community", itemNumber:"",
-    unit:"hr", qty:1, rate:subtotal, amount:subtotal, notes:""
-  }];
-
-  const histEntry = {
-    id:uid(), clientId, clientName:cl.name||"",
-    invoiceNum, date:dateVal,
-    subtotal, gst:gstAmt>0?gstAmt:0, total, useGst:gstAmt>0,
-    sessions:finalSessions, notes:notes||"Scanned import",
-    imported:true
-  };
-
-  invoiceHistory = [histEntry, ...invoiceHistory];
-  ls.set("ndis-history", invoiceHistory);
-  closeScanModal();
-  goPage("history");
-  renderHistory();
-  toast(`✅ Invoice ${invoiceNum} imported to history`);
-}
-
 // ── Payment Reminders ─────────────────────────────────────────────────────────
 function checkPaymentReminders(){
   const today=new Date();
-  // Find sent invoices older than 3 days that haven't been paid
   const overdue=invoiceHistory.filter(h=>{
-    if(h.payStatus!=="sent"&&h.payStatus!=="unpaid") return false;
-    if(!h.date) return false;
+    if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
+    if(h.payStatus!=="sent") return false;
+    if(!h.sentDate&&!h.date) return false;
     const sent=new Date((h.sentDate||h.date)+"T12:00:00");
-    const days=(today-sent)/(1000*60*60*24);
-    return days>=3;
+    return (today-sent)/(1000*60*60*24)>=3;
   });
   if(!overdue.length) return;
   const list=document.getElementById("pay-remind-list");
+  if(!list) return;
   list.innerHTML=overdue.map(h=>`
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div>
         <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(h.invoiceNum)}</div>
         <div style="font-size:11px;color:var(--sub);">${esc(h.clientName)} · ${aud(h.total)}</div>
-        <div style="font-size:11px;color:var(--faint);">Sent ${h.sentDate?fmtShort(h.sentDate):fmtShort(h.date)}</div>
+        <div style="font-size:11px;color:var(--faint);">Sent ${fmtShort(h.sentDate||h.date)}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-primary btn-sm" onclick="remindMarkPaid('${h.id}')">✓ Paid</button>
@@ -655,20 +465,17 @@ function checkPaymentReminders(){
 function remindMarkPaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
   ls.set("ndis-history",invoiceHistory);
-  // Remove from list
-  const item=document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]");
-  if(item) item.remove();
+  const btn=document.querySelector(`button[onclick="remindMarkPaid('${id}')"]`);
+  if(btn) btn.closest("div[style]").remove();
   toast("💰 Marked as paid ✓");
-  // Close if list empty
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
 
 function remindSnooze(id){
-  // Snooze by updating sentDate to today so it won't show for another 3 days
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const item=document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]");
-  if(item) item.remove();
+  const btn=document.querySelector(`button[onclick="remindSnooze('${id}')"]`);
+  if(btn) btn.closest("div[style]").remove();
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
 
@@ -944,7 +751,6 @@ function closePayReminder(){
           <select id="hist-filter-client" onchange="renderHistory()" style="background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer;">
             <option value="">All clients</option>
           </select>
-          <button class="btn btn-soft btn-sm" onclick="openScanModal()">📷 Scan Invoice</button>
           <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">🗑 Clear All</button>
         </div>
       </div>
@@ -1009,75 +815,7 @@ function closePayReminder(){
       <div id="tax-body"></div>
     </div>
 
-  
-
-    <!-- ── PAYMENT REMINDER MODAL ── -->
-    <div id="pay-remind-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
-      <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);">
-        <div style="font-size:28px;text-align:center;margin-bottom:6px;">💰</div>
-        <div style="font-size:17px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px;">Payment check-in</div>
-        <div style="font-size:13px;color:var(--sub);text-align:center;margin-bottom:20px;">Have any of these invoices been paid?</div>
-        <div id="pay-remind-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;"></div>
-        <button class="btn btn-ghost" style="width:100%;" onclick="closePayReminder()">Done</button>
-      </div>
-    </div>
-
-    <!-- ── SCAN INVOICE MODAL ── -->
-    <div id="scan-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
-      <div style="background:#fff;border-radius:16px;padding:28px;max-width:480px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-          <div>
-            <div style="font-size:17px;font-weight:700;color:var(--text);">📷 Scan Existing Invoice</div>
-            <div style="font-size:12px;color:var(--sub);margin-top:3px;">Upload a photo or PDF — Claude will extract all the details</div>
-          </div>
-          <button onclick="closeScanModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--faint);line-height:1;">×</button>
-        </div>
-
-        <!-- Drop zone -->
-        <div id="scan-drop" onclick="document.getElementById('scan-file-input').click()"
-          style="border:2px dashed var(--border2);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg);"
-          ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
-          ondragleave="this.style.borderColor='var(--border2)'"
-          ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleScanFile(event.dataTransfer.files[0])">
-          <div style="font-size:32px;margin-bottom:8px;">📄</div>
-          <div style="font-size:13px;font-weight:600;color:var(--text);">Tap to upload or drag & drop</div>
-          <div style="font-size:12px;color:var(--sub);margin-top:4px;">Photo (JPG/PNG) or PDF</div>
-        </div>
-        <input type="file" id="scan-file-input" accept="image/*,application/pdf" style="display:none" onchange="handleScanFile(this.files[0])"/>
-
-        <!-- Preview -->
-        <div id="scan-preview" style="display:none;margin-top:14px;">
-          <img id="scan-preview-img" style="max-width:100%;border-radius:8px;border:1px solid var(--border);"/>
-        </div>
-
-        <!-- Status -->
-        <div id="scan-status" style="display:none;margin-top:14px;padding:12px 16px;background:var(--sky);border-radius:10px;border:1px solid #a7f3d0;font-size:13px;color:var(--green-d);"></div>
-
-        <!-- Extracted data review -->
-        <div id="scan-result" style="display:none;margin-top:14px;">
-          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Extracted — please review:</div>
-          <div class="fg fg2" style="gap:10px;">
-            <div class="field"><label>Invoice Number</label><input id="sc-invnum" class="mono"/></div>
-            <div class="field"><label>Date</label><input id="sc-date" type="date"/></div>
-            <div class="field span2"><label>Client Name</label>
-              <select id="sc-client" style="background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;width:100%;">
-                <option value="">— select client —</option>
-              </select>
-            </div>
-            <div class="field"><label>Subtotal ($)</label><input id="sc-subtotal" type="number" step="0.01" class="mono"/></div>
-            <div class="field"><label>Total ($)</label><input id="sc-total" type="number" step="0.01" class="mono"/></div>
-            <div class="field span2"><label>Notes (optional)</label><input id="sc-notes" placeholder="e.g. Scanned from paper invoice"/></div>
-          </div>
-          <div id="sc-sessions-wrap" style="margin-top:14px;"></div>
-          <div style="display:flex;gap:10px;margin-top:18px;">
-            <button class="btn btn-primary" style="flex:1;" onclick="confirmScanImport()">✓ Save to History</button>
-            <button class="btn btn-ghost" onclick="closeScanModal()">Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-</div><!-- /main -->
+  </div><!-- /main -->
 </div><!-- /shell -->
 
 <!-- Mobile FAB -->
@@ -1197,12 +935,27 @@ window.addEventListener("load",()=>{
     if(!worker.name){populateSettings();goPage("settings");}
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
-    // Check for unpaid invoices on startup
-    setTimeout(()=>checkPaymentReminders(), 1500);
-    // Restore Drive button state if previously connected (token will need refresh)
+    setTimeout(()=>checkPaymentReminders(),1800);
+    // Auto-reconnect Drive silently if previously connected
     if(ls.get("ndis-drive-connected")){
       const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="☁️ Reconnect Drive";btn.style.background="";}
+      if(btn){btn.textContent="☁️ Reconnecting...";btn.style.background="";}
+      setTimeout(()=>{
+        if(!window.google){if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}return;}
+        const client=google.accounts.oauth2.initTokenClient({
+          client_id:GDRIVE_CLIENT_ID,scope:GDRIVE_SCOPE,prompt:"",
+          callback:(resp)=>{
+            if(resp.error||!resp.access_token){
+              if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
+              ls.set("ndis-drive-connected",false);return;
+            }
+            driveToken=resp.access_token;
+            driveTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+            if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+          }
+        });
+        client.requestAccessToken();
+      },1500);
     }
   }catch(err){
     console.error("Boot error:",err);
@@ -1927,20 +1680,32 @@ Kind regards,
 ${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`
   );
 
-  // Mark invoice as sent in history
-  invoiceHistory=invoiceHistory.map(h=>h.id===entry.id?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);
-  ls.set("ndis-history",invoiceHistory);
-
-  // Open Gmail compose first, then prompt to save PDF
+  // Open Gmail compose in new tab
   const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
   window.open(gmailUrl,"_blank");
+  // Trigger PDF save
   const prevTitle=document.title;
   document.title=invoiceNum;
   setTimeout(()=>{
-    toast("📄 Now save the invoice as PDF to attach to your Gmail");
+    toast("📄 Save as PDF then attach to Gmail");
     window.print();
     document.title=prevTitle;
+    // After print dialog, ask if they actually sent it
+    setTimeout(()=>showSentConfirm(entry.id, invoiceNum),1200);
   },600);
+}
+
+function showSentConfirm(entryId, invoiceNum){
+  const modal=document.getElementById("sent-confirm-modal");
+  document.getElementById("sent-confirm-num").textContent=invoiceNum;
+  document.getElementById("sent-confirm-yes").onclick=()=>{
+    invoiceHistory=invoiceHistory.map(h=>h.id===entryId?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);
+    ls.set("ndis-history",invoiceHistory);
+    modal.style.display="none";
+    toast("✅ Marked as sent");
+  };
+  document.getElementById("sent-confirm-no").onclick=()=>{modal.style.display="none";};
+  modal.style.display="flex";
 }
 
 function goInvoice(){
@@ -2480,22 +2245,22 @@ function renderReport(){
 // ── Payment Reminders ─────────────────────────────────────────────────────────
 function checkPaymentReminders(){
   const today=new Date();
-  // Find sent invoices older than 3 days that haven't been paid
   const overdue=invoiceHistory.filter(h=>{
-    if(h.payStatus!=="sent"&&h.payStatus!=="unpaid") return false;
-    if(!h.date) return false;
+    if(h.payStatus==="paid"||h.payStatus==="overdue") return false;
+    if(h.payStatus!=="sent") return false;
+    if(!h.sentDate&&!h.date) return false;
     const sent=new Date((h.sentDate||h.date)+"T12:00:00");
-    const days=(today-sent)/(1000*60*60*24);
-    return days>=3;
+    return (today-sent)/(1000*60*60*24)>=3;
   });
   if(!overdue.length) return;
   const list=document.getElementById("pay-remind-list");
+  if(!list) return;
   list.innerHTML=overdue.map(h=>`
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div>
         <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(h.invoiceNum)}</div>
         <div style="font-size:11px;color:var(--sub);">${esc(h.clientName)} · ${aud(h.total)}</div>
-        <div style="font-size:11px;color:var(--faint);">Sent ${h.sentDate?fmtShort(h.sentDate):fmtShort(h.date)}</div>
+        <div style="font-size:11px;color:var(--faint);">Sent ${fmtShort(h.sentDate||h.date)}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-primary btn-sm" onclick="remindMarkPaid('${h.id}')">✓ Paid</button>
@@ -2509,20 +2274,17 @@ function checkPaymentReminders(){
 function remindMarkPaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
   ls.set("ndis-history",invoiceHistory);
-  // Remove from list
-  const item=document.querySelector(`[onclick="remindMarkPaid('${id}')"]`)?.closest("div[style]");
-  if(item) item.remove();
+  const btn=document.querySelector(`button[onclick="remindMarkPaid('${id}')"]`);
+  if(btn) btn.closest("div[style]").remove();
   toast("💰 Marked as paid ✓");
-  // Close if list empty
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
 
 function remindSnooze(id){
-  // Snooze by updating sentDate to today so it won't show for another 3 days
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,sentDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
-  const item=document.querySelector(`[onclick="remindSnooze('${id}')"]`)?.closest("div[style]");
-  if(item) item.remove();
+  const btn=document.querySelector(`button[onclick="remindSnooze('${id}')"]`);
+  if(btn) btn.closest("div[style]").remove();
   if(!document.getElementById("pay-remind-list").children.length) closePayReminder();
 }
 
@@ -2531,5 +2293,30 @@ function closePayReminder(){
 }
 
 </script>
+
+    <!-- ── SENT CONFIRM MODAL ── -->
+    <div id="sent-confirm-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:16px;">
+      <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">📨</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Did you send it?</div>
+        <div style="font-size:13px;color:var(--sub);margin-bottom:22px;"><strong id="sent-confirm-num"></strong> — did you attach the PDF and send the email?</div>
+        <div style="display:flex;gap:10px;">
+          <button id="sent-confirm-yes" class="btn btn-primary" style="flex:1;">Yes, sent ✓</button>
+          <button id="sent-confirm-no" class="btn btn-ghost" style="flex:1;">Not yet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAYMENT REMINDER MODAL ── -->
+    <div id="pay-remind-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
+      <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);">
+        <div style="font-size:28px;text-align:center;margin-bottom:6px;">💰</div>
+        <div style="font-size:17px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px;">Payment check-in</div>
+        <div style="font-size:13px;color:var(--sub);text-align:center;margin-bottom:20px;">Have any of these invoices been paid?</div>
+        <div id="pay-remind-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto;"></div>
+        <button class="btn btn-ghost" style="width:100%;" onclick="closePayReminder()">Done</button>
+      </div>
+    </div>
+
 </body>
 </html>
