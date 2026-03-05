@@ -885,10 +885,31 @@ window.addEventListener("load",()=>{
     if(!worker.name){populateSettings();goPage("settings");}
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
-    // Restore Drive button state if previously connected (token will need refresh)
+    // Auto-reconnect Drive silently if previously connected
     if(ls.get("ndis-drive-connected")){
       const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="☁️ Reconnect Drive";btn.style.background="";}
+      if(btn){btn.textContent="☁️ Reconnecting...";btn.style.background="";}
+      setTimeout(()=>{
+        if(!window.google){
+          if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
+          return;
+        }
+        const client=google.accounts.oauth2.initTokenClient({
+          client_id:GDRIVE_CLIENT_ID,scope:GDRIVE_SCOPE,
+          prompt:"",  // silent — no popup if already authorised
+          callback:(resp)=>{
+            if(resp.error||!resp.access_token){
+              if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
+              ls.set("ndis-drive-connected",false);
+              return;
+            }
+            driveToken=resp.access_token;
+            driveTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+            if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+          }
+        });
+        client.requestAccessToken();
+      },1500);
     }
   }catch(err){
     console.error("Boot error:",err);
@@ -1078,7 +1099,7 @@ async function saveToDrive(invoiceNum){
     throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
   }
   console.log("Drive backup saved:",result.name);
-  return result;
+  return result.id;  // return file ID for deletion later
 }
 
 async function toggleDriveConnection(){
@@ -1180,12 +1201,14 @@ function peekNextNum(clientId){
   const c=clients.find(x=>x.id===id);
   const prefix=getClientPrefix(id);
   const startNum=c?.invStartNum||1;
+  // Always derive from remaining invoice history (counters deleted on history delete)
   const counters=worker.clientCounters||{};
-  // If we have a stored counter for this client, use it
-  if(counters[id]!==undefined) return prefix+counters[id];
-  // Otherwise derive from invoice history: find highest number used
   const clientHist=invoiceHistory.filter(h=>h.clientId===id);
-  if(!clientHist.length) return prefix+startNum;
+  if(!clientHist.length){
+    // No history — use stored counter or startNum
+    return prefix+(counters[id]!==undefined?counters[id]:startNum);
+  }
+  // Find highest number used in remaining history
   let maxN=startNum-1;
   clientHist.forEach(h=>{
     const m=h.invoiceNum.match(/(\d+)$/);
@@ -1613,10 +1636,19 @@ Kind regards,
 ${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`
   );
 
-  // Open email client
-  const mailto=`mailto:${pmEmail}?subject=${subject}&body=${body}`;
-  window.open(mailto,"_self");
-  toast("📧 Opening email app...");
+  // Step 1: Save PDF first
+  const prevTitle=document.title;
+  document.title=invoiceNum;
+  toast("📄 Save the PDF, then Gmail will open...");
+  setTimeout(()=>{
+    window.print();
+    document.title=prevTitle;
+    // Step 2: Open Gmail compose after a short delay
+    setTimeout(()=>{
+      const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+      window.open(gmailUrl,"_blank");
+    },1200);
+  },300);
 }
 
 function goInvoice(){
@@ -1645,8 +1677,21 @@ function goInvoice(){
   buildInvoice(histEntry);
   document.getElementById("inv-num-head").textContent=userInvNum;
   goPage("invoice");
-  // Auto-backup silently on every invoice
-  setTimeout(()=>autoBackup(userInvNum),600);
+  // Auto-save to Drive silently if connected (no local JSON download)
+  setTimeout(()=>{
+    if(driveToken&&Date.now()<driveTokenExpiry){
+      saveToDrive(userInvNum).then(fileId=>{
+        if(fileId){
+          // Store Drive file ID in history entry for later deletion
+          invoiceHistory=invoiceHistory.map(h=>h.id===histEntry.id?{...h,driveFileId:fileId}:h);
+          ls.set("ndis-history",invoiceHistory);
+        }
+        toast("☁️ Saved to Google Drive ✓");
+      }).catch(()=>toast("⚠ Drive save failed — data saved locally"));
+    }
+  },600);
+  // Auto-trigger print/PDF after a short render delay
+  setTimeout(()=>printInvoice(),800);
 }
 
 function buildInvoice(entry){
@@ -1735,6 +1780,10 @@ function buildInvoice(entry){
               <td class="amt">${aud(entry.subtotal)}</td>
             </tr>
             ${gstRows}
+            <tr><td colspan="5" style="font-size:10px;color:#888;padding:8px 6px 4px;border-top:1px solid #e0e0e0;font-style:italic;">
+              ${entry.useGst?"GST (10%) is applicable to this invoice.":"No GST applicable — NDIS support services are GST-free (ATO GSTR 2002/2)."}
+              &nbsp;Rates: NDIS PAPL 2025–26 v1.1.
+            </td></tr>
           </tbody>
         </table>
       </div>
@@ -1742,10 +1791,6 @@ function buildInvoice(entry){
         Make all checks payable to <strong>${esc(worker.payableName||worker.name)}</strong><br/>
         ${worker.bsb?"BSB: "+esc(worker.bsb)+"<br/>":""}
         ${worker.account?"ACC#: "+esc(worker.account):""}
-      </div>
-      <div class="inv-disc-bar">
-        ${entry.useGst?"GST is applicable to this invoice at 10%.":"No GST applicable — NDIS support services are GST-free (ATO GSTR 2002/2)."}
-        &nbsp;·&nbsp;Rates: NDIS PAPL 2025–26 v1.1 · Verify at ndis.gov.au
       </div>
     </div>
   `;
@@ -1846,11 +1891,30 @@ function reloadFromHistory(id){
 }
 
 function deleteHistEntry(id){
+  const entry=invoiceHistory.find(x=>x.id===id);
   if(!confirm("Delete this invoice record?"))return;
   invoiceHistory=invoiceHistory.filter(x=>x.id!==id);
   ls.set("ndis-history",invoiceHistory);
+  // Recalculate invoice counter for that client so numbering reflects the deletion
+  if(entry?.clientId){
+    const counters=worker.clientCounters||{};
+    delete counters[entry.clientId]; // force recalc from remaining history
+    worker.clientCounters=counters;
+    ls.set("ndis-worker",worker);
+  }
+  // Also delete from Google Drive if we have the file ID
+  if(entry?.driveFileId&&driveToken&&Date.now()<driveTokenExpiry){
+    fetch(`https://www.googleapis.com/drive/v3/files/${entry.driveFileId}`,{
+      method:"DELETE",headers:{Authorization:"Bearer "+driveToken}
+    }).then(r=>{
+      if(r.ok||r.status===404) toast("Invoice deleted (Drive file removed ✓)");
+      else toast("Invoice deleted locally (Drive remove failed)");
+    }).catch(()=>toast("Invoice deleted locally"));
+  } else {
+    toast("Invoice deleted");
+  }
   renderHistory();
-  toast("Invoice deleted");
+  renderClientHistPanel(activeId);
 }
 
 function clearAllHistory(){
