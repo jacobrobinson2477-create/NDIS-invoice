@@ -266,6 +266,35 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .inv-footer strong{font-weight:700;}
 .inv-disc-bar{padding:8px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#92400e;line-height:1.5;}
 
+/* ── ONBOARDING ── */
+.onboard-wrap{max-width:480px;margin:0 auto;padding:32px 16px;}
+.onboard-logo{font-size:36px;font-weight:800;color:var(--green-xd);letter-spacing:-1px;margin-bottom:4px;}
+.onboard-logo span{color:var(--green);}
+.onboard-sub{font-size:14px;color:var(--sub);margin-bottom:32px;}
+.onboard-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:28px;}
+.onboard-step{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;}
+.onboard-step-num{width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.onboard-step-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.onboard-step-desc{font-size:12px;color:var(--sub);line-height:1.5;}
+
+/* ── PAYMENT STATUS ── */
+.pay-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.pay-badge.unpaid{background:#fef3c7;color:#92400e;}
+.pay-badge.sent{background:#dbeafe;color:#1e40af;}
+.pay-badge.paid{background:#d1fae5;color:#065f46;}
+.pay-badge.overdue{background:#fee2e2;color:#991b1b;}
+.hist-row-status{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;}
+.pay-action-btn{background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--sub);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s;}
+.pay-action-btn:hover{border-color:var(--green);color:var(--green);}
+
+/* ── TAX PAGE ── */
+.tax-fy-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+.tax-fy-bar select{background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;}
+.tax-section{margin-bottom:20px;}
+.tax-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.gst-badge{background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;margin-left:6px;}
+.gst-badge.off{background:#f3f4f6;color:#6b7280;}
+
 /* ── TOAST ── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--green-xd);color:#a7f3d0;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:toastIn .2s ease;pointer-events:none;}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -417,6 +446,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   <div class="nav-right">
     <button class="nav-btn nav-hide-mobile" id="nav-history" onclick="goPage('history')">📋 History</button>
     <button class="nav-btn nav-hide-mobile" id="nav-report" onclick="goPage('report')">📊 Report</button>
+    <button class="nav-btn nav-hide-mobile" id="nav-tax" onclick="goPage('tax')">🧾 Tax</button>
     <button class="nav-btn nav-hide-mobile" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
     <button class="nav-btn hidden" id="install-btn" onclick="installApp()">📲 Install</button>
     <div class="nav-more-wrap">
@@ -424,6 +454,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
       <div class="nav-dropdown hidden" id="nav-dropdown">
         <button class="nav-btn" id="nav-history-m" onclick="goPage('history');closeNavMenu()">📋 History</button>
         <button class="nav-btn" id="nav-report-m" onclick="goPage('report');closeNavMenu()">📊 Report</button>
+        <button class="nav-btn" id="nav-tax-m" onclick="goPage('tax');closeNavMenu()">🧾 Tax</button>
         <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
         <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
         <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
@@ -463,6 +494,11 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
           <div class="field span2"><label>Payable To Name <span style="font-weight:400;color:var(--faint)">(on invoice — e.g. J &amp; N Robinson)</span></label><input id="s-payable" placeholder="Leave blank to use your name above"/></div>
           <div class="field span2"><label>Invoice Prefix Override <span style="font-weight:400;color:var(--faint)">(leave blank to auto-use client initials)</span></label><input id="s-prefix" placeholder="e.g. NM" class="mono" maxlength="6"/></div>
         </div>
+        <div class="tog-row" style="margin-top:16px;">
+          <label class="tog"><input type="checkbox" id="s-gst"/><span class="tog-track"><span class="tog-thumb"></span></span></label>
+          <span class="tog-lbl">Registered for GST <span class="gst-badge off" id="gst-status-badge">GST OFF</span></span>
+        </div>
+        <div id="gst-hint" class="hidden" style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5;">GST (10%) will be calculated and shown on your invoices and tax reports. Only enable if you are registered for GST with the ATO.</div>
       </div>
       <div class="card">
         <div class="card-hd"><span class="card-hd-icon">🏦</span> Bank Details</div>
@@ -686,6 +722,48 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
       <div id="rpt-body"></div>
     </div>
 
+    <!-- ── ONBOARDING ── -->
+    <div class="page" id="page-onboarding">
+      <div class="onboard-wrap">
+        <div class="onboard-logo">NDIS<span>invoice</span></div>
+        <div class="onboard-sub">The invoicing tool built for independent NDIS support workers.</div>
+        <div class="onboard-steps">
+          <div class="onboard-step">
+            <div class="onboard-step-num">1</div>
+            <div><div class="onboard-step-title">Set up your profile</div><div class="onboard-step-desc">Enter your name, ABN and bank details. These appear on every invoice you generate.</div></div>
+          </div>
+          <div class="onboard-step">
+            <div class="onboard-step-num">2</div>
+            <div><div class="onboard-step-title">Add your clients</div><div class="onboard-step-desc">Add each NDIS participant and their plan manager details including email for easy invoicing.</div></div>
+          </div>
+          <div class="onboard-step">
+            <div class="onboard-step-num">3</div>
+            <div><div class="onboard-step-title">Log your sessions</div><div class="onboard-step-desc">Select a client, add each support session with date and type. Rates are calculated automatically using the latest NDIS price guide.</div></div>
+          </div>
+          <div class="onboard-step">
+            <div class="onboard-step-num">4</div>
+            <div><div class="onboard-step-title">Generate &amp; send</div><div class="onboard-step-desc">Preview your invoice, print to PDF, and email it directly to your plan manager in one tap.</div></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:14px;" onclick="finishOnboarding()">Get Started →</button>
+        <div style="text-align:center;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="goPage('dashboard')">Skip for now</button></div>
+      </div>
+    </div>
+
+    <!-- ── TAX TIME ── -->
+    <div class="page" id="page-tax">
+      <div class="ph">
+        <div class="ph-eyebrow">Tax</div>
+        <div class="ph-title">Tax Time Summary</div>
+        <div class="ph-sub">Financial year summary for your tax return.</div>
+      </div>
+      <div class="tax-fy-bar">
+        <select id="tax-fy" onchange="renderTax()"></select>
+        <select id="tax-client" onchange="renderTax()"><option value="">All clients</option></select>
+      </div>
+      <div id="tax-body"></div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /shell -->
 
@@ -750,7 +828,7 @@ const ls={
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let worker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1};
+let worker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1,gst:false};
 let clients=[];
 let activeId=null;
 let editId=null;
@@ -804,6 +882,7 @@ window.addEventListener("load",()=>{
     renderSidebar();
     populateReportMonths();
     if(!worker.name){populateSettings();goPage("settings");}
+    else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
     // Restore Drive button state if previously connected
     if(ls.get("ndis-drive-connected")){
@@ -842,10 +921,12 @@ function goPage(name){
     if(fab) fab.classList.toggle("hidden",name!=="services");
     // Nav button highlight
     document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active-tab"));
-    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"]};
+    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"],tax:["nav-tax","nav-tax-m"]};
     if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
+    if(name==="history") renderHistory();
+    if(name==="tax"){populateTaxFY();renderTax();}
     if(name==="history"){populateHistoryFilter();renderHistory();}
     if(name==="report"){populateReportClients();renderReport();}
   }catch(err){console.error("goPage error:",err);}
@@ -1094,12 +1175,24 @@ function populateSettings(){
   f("s-phone",worker.phone);f("s-bank",worker.bankName);f("s-bsb",worker.bsb);f("s-acc",worker.account);
   f("s-title",worker.title);f("s-address",worker.address);f("s-payable",worker.payableName);
   f("s-prefix",worker.prefix);
+  const gstEl=document.getElementById("s-gst");
+  if(gstEl) gstEl.checked=!!worker.gst;
+  updateGstBadge(!!worker.gst);
+  if(gstEl) gstEl.onchange=()=>updateGstBadge(gstEl.checked);
+}
+function updateGstBadge(on){
+  const badge=document.getElementById("gst-status-badge");
+  const hint=document.getElementById("gst-hint");
+  if(badge){badge.textContent=on?"GST ON":"GST OFF";badge.className="gst-badge"+(on?"":" off");}
+  if(hint) hint.classList.toggle("hidden",!on);
 }
 function saveWorker(){
   const g=id=>document.getElementById(id)?.value?.trim()||"";
+  const gstEl=document.getElementById("s-gst");
   worker={...worker,name:g("s-name"),abn:g("s-abn"),email:g("s-email"),phone:g("s-phone"),
     bankName:g("s-bank"),bsb:g("s-bsb"),account:g("s-acc"),title:g("s-title"),
-    address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix")};
+    address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix"),
+    gst:gstEl?gstEl.checked:false};
   if(!worker.name){alert("Please enter your name or business name.");return;}
   ls.set("ndis-worker",worker);
   const btn=document.getElementById("save-btn");
@@ -1630,8 +1723,10 @@ function renderHistory(){
     body.innerHTML=`<div class="hist-empty">No invoices found. Generate your first invoice to see it here.</div>`;
     return;
   }
-  body.innerHTML=`<div class="hist-list">${list.map(h=>`
-    <div class="hist-row">
+  const statusLabel={unpaid:"Unpaid",sent:"Sent",paid:"Paid ✓",overdue:"Overdue"};
+  body.innerHTML=`<div class="hist-list">${list.map(h=>{
+    const status=h.payStatus||"unpaid";
+    return `<div class="hist-row">
       <div>
         <div class="hist-num">${esc(h.invoiceNum)}</div>
         <div class="hist-date">${fmtD(h.date)}</div>
@@ -1639,6 +1734,11 @@ function renderHistory(){
       <div>
         <div class="hist-client">${esc(h.clientName)}</div>
         <div class="hist-date">${h.sessions.length} session${h.sessions.length!==1?"s":""} · ${h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0)} hrs</div>
+        <div class="hist-row-status">
+          <span class="pay-badge ${status}">${statusLabel[status]||"Unpaid"}</span>
+          ${h.payDate?`<span style="font-size:11px;color:var(--faint)">Paid ${fmtShort(h.payDate)}</span>`:""}
+          ${h.remittanceRef?`<span style="font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace">${esc(h.remittanceRef)}</span>`:""}
+        </div>
       </div>
       <div style="text-align:right;">
         <div class="hist-amt">${aud(h.total)}</div>
@@ -1646,11 +1746,32 @@ function renderHistory(){
       </div>
       <div class="hist-actions">
         <button class="btn btn-primary btn-sm" onclick="viewHistInvoice('${h.id}')">View</button>
+        <button class="btn btn-soft btn-sm" onclick="markPayment('${h.id}')">💰 Payment</button>
         <button class="btn btn-soft btn-sm" onclick="reloadFromHistory('${h.id}')">✏️ Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteHistEntry('${h.id}')">🗑</button>
       </div>
-    </div>
-  `).join("")}</div>`;
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function markPayment(id){
+  const h=invoiceHistory.find(x=>x.id===id);if(!h)return;
+  const current=h.payStatus||"unpaid";
+  const options=["unpaid","sent","paid","overdue"];
+  const labels={"unpaid":"Unpaid","sent":"Sent to plan manager","paid":"Paid","overdue":"Overdue"};
+  const choice=prompt(`Update payment status for ${h.invoiceNum}:\n\n0: Unpaid\n1: Sent to plan manager\n2: Paid\n3: Overdue\n\nEnter number (current: ${labels[current]||current}):`);
+  if(choice===null)return;
+  const newStatus=options[parseInt(choice)]||current;
+  let payDate=h.payDate||"";
+  let remittanceRef=h.remittanceRef||"";
+  if(newStatus==="paid"){
+    payDate=prompt("Payment date (DD/MM/YYYY or leave blank for today):")||new Date().toLocaleDateString("en-AU");
+    remittanceRef=prompt("Remittance reference (paste from email, or leave blank):")||"";
+  }
+  invoiceHistory=invoiceHistory.map(x=>x.id===id?{...x,payStatus:newStatus,payDate:newStatus==="paid"?payDate:x.payDate,remittanceRef:newStatus==="paid"?remittanceRef:x.remittanceRef}:x);
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast(`Invoice marked as ${labels[newStatus]}`);
 }
 
 function viewHistInvoice(id){
@@ -1699,6 +1820,170 @@ function clearAllHistory(){
 }
 
 // ── Monthly Report ────────────────────────────────────────────────────────────
+// ── Onboarding ────────────────────────────────────────────────────────────────
+function finishOnboarding(){
+  worker={...worker,onboarded:true};
+  ls.set("ndis-worker",worker);
+  goPage("settings");
+  toast("Let's start with your profile details");
+}
+
+// ── Tax Time ──────────────────────────────────────────────────────────────────
+function getFY(dateStr){
+  if(!dateStr)return null;
+  const d=new Date(dateStr+"T12:00:00");
+  const y=d.getFullYear(),m=d.getMonth();
+  return m>=6?`${y}-${y+1}`:`${y-1}-${y}`;
+}
+function populateTaxFY(){
+  const sel=document.getElementById("tax-fy");
+  const clientSel=document.getElementById("tax-client");
+  if(!sel)return;
+  const fys=new Set();
+  invoiceHistory.forEach(h=>{const fy=getFY(h.date);if(fy)fys.add(fy);});
+  // Add current FY
+  const now=new Date();
+  const curFY=now.getMonth()>=6?`${now.getFullYear()}-${now.getFullYear()+1}`:`${now.getFullYear()-1}-${now.getFullYear()}`;
+  fys.add(curFY);
+  const sorted=[...fys].sort((a,b)=>b.localeCompare(a));
+  const cur=sel.value||curFY;
+  sel.innerHTML=sorted.map(fy=>`<option value="${fy}">FY ${fy}</option>`).join("");
+  sel.value=cur;
+  // Populate client filter
+  const curClient=clientSel?.value||"";
+  if(clientSel){
+    clientSel.innerHTML='<option value="">All clients</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    clientSel.value=curClient;
+  }
+}
+function renderTax(){
+  const fy=document.getElementById("tax-fy")?.value||"";
+  const filterClient=document.getElementById("tax-client")?.value||"";
+  const body=document.getElementById("tax-body");
+  if(!body)return;
+  let list=invoiceHistory.filter(h=>getFY(h.date)===fy);
+  if(filterClient)list=list.filter(h=>h.clientId===filterClient);
+  if(!list.length){
+    body.innerHTML=`<div class="empty" style="padding:40px;"><div class="empty-icon">🧾</div><div class="empty-title">No invoices for FY ${fy}</div><div class="empty-sub">Invoices you generate will appear here for tax reporting.</div></div>`;
+    return;
+  }
+  const totalIncome=list.reduce((s,h)=>s+h.total,0);
+  const totalSubtotal=list.reduce((s,h)=>s+(h.subtotal||h.total),0);
+  const totalGst=list.reduce((s,h)=>s+(h.gst||0),0);
+  const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
+  const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
+  const paidList=list.filter(h=>h.payStatus==="paid");
+  const unpaidList=list.filter(h=>h.payStatus!=="paid");
+  const totalPaid=paidList.reduce((s,h)=>s+h.total,0);
+  const totalUnpaid=unpaidList.reduce((s,h)=>s+h.total,0);
+  // By plan manager
+  const byPM={};
+  list.forEach(h=>{
+    const cl=clients.find(x=>x.id===h.clientId);
+    const pm=cl?.pm?.org||"Unknown Plan Manager";
+    if(!byPM[pm])byPM[pm]={total:0,invoices:0,paid:0,unpaid:0};
+    byPM[pm].total+=h.total;
+    byPM[pm].invoices++;
+    if(h.payStatus==="paid")byPM[pm].paid+=h.total;
+    else byPM[pm].unpaid+=h.total;
+  });
+  body.innerHTML=`
+    <div class="report-grid" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Total Income</div></div>
+      ${totalGst>0?`<div class="stat-card"><div class="stat-icon">📑</div><div class="stat-val">${aud(totalGst)}</div><div class="stat-lbl">GST Collected</div></div>`:""}
+      <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val">${aud(totalPaid)}</div><div class="stat-lbl">Received</div></div>
+      <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val">${aud(totalUnpaid)}</div><div class="stat-lbl">Outstanding</div></div>
+      <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val">${totalHours} hrs</div><div class="stat-lbl">Hours Worked</div></div>
+      ${totalKm>0?`<div class="stat-card"><div class="stat-icon">🚗</div><div class="stat-val">${totalKm} km</div><div class="stat-lbl">Travel (${aud(totalKm*0.99)})</div></div>`:""}
+      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${list.length}</div><div class="stat-lbl">Invoices</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><span class="card-hd-icon">🏢</span> Income by Plan Manager</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Plan Manager</th><th class="r">Invoices</th><th class="r">Received</th><th class="r">Outstanding</th><th class="r">Total</th></tr></thead>
+        <tbody>
+          ${Object.entries(byPM).sort((a,b)=>b[1].total-a[1].total).map(([pm,v])=>`
+            <tr>
+              <td>${esc(pm)}</td>
+              <td class="r">${v.invoices}</td>
+              <td class="r" style="color:var(--green-d)">${aud(v.paid)}</td>
+              <td class="r" style="color:var(--amber)">${aud(v.unpaid)}</td>
+              <td class="r" style="font-weight:600">${aud(v.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    ${totalGst>0?`
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><span class="card-hd-icon">📑</span> GST Summary</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Quarter</th><th class="r">Invoices</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th></tr></thead>
+        <tbody>
+          ${["Q1 (Jul–Sep)","Q2 (Oct–Dec)","Q3 (Jan–Mar)","Q4 (Apr–Jun)"].map((qLabel,qi)=>{
+            const qMonths=[[6,7,8],[9,10,11],[0,1,2],[3,4,5]][qi];
+            const qList=list.filter(h=>{const m=new Date(h.date+"T12:00:00").getMonth();return qMonths.includes(m);});
+            if(!qList.length)return"";
+            const qSub=qList.reduce((s,h)=>s+(h.subtotal||h.total),0);
+            const qGst=qList.reduce((s,h)=>s+(h.gst||0),0);
+            const qTot=qList.reduce((s,h)=>s+h.total,0);
+            return`<tr><td>${qLabel}</td><td class="r">${qList.length}</td><td class="r">${aud(qSub)}</td><td class="r" style="color:var(--green-d)">${aud(qGst)}</td><td class="r" style="font-weight:600">${aud(qTot)}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`:""}
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><span class="card-hd-icon">📋</span> All Invoices — FY ${esc(fy)}</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Invoice</th><th>Client</th><th class="r">Date</th><th class="r">Status</th><th class="r">Total</th></tr></thead>
+        <tbody>
+          ${list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{
+            const statusColors={paid:"color:var(--green-d)",unpaid:"color:var(--amber)",overdue:"color:var(--red)",sent:"color:#1e40af"};
+            return`<tr>
+              <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${esc(h.invoiceNum)}</td>
+              <td>${esc(h.clientName)}</td>
+              <td class="r">${fmtShort(h.date)}</td>
+              <td class="r" style="font-size:11px;font-weight:600;${statusColors[h.payStatus||"unpaid"]||""}">${h.payStatus==="paid"?"Paid":h.payStatus==="sent"?"Sent":h.payStatus==="overdue"?"Overdue":"Unpaid"}</td>
+              <td class="r" style="font-weight:600">${aud(h.total)}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tax-export-row">
+      <button class="btn btn-soft" onclick="exportTaxCSV('${esc(fy)}')">📥 Export CSV for Accountant</button>
+    </div>
+  `;
+}
+
+function exportTaxCSV(fy){
+  const filterClient=document.getElementById("tax-client")?.value||"";
+  let list=invoiceHistory.filter(h=>getFY(h.date)===fy);
+  if(filterClient)list=list.filter(h=>h.clientId===filterClient);
+  const rows=[
+    ["Invoice Number","Date","Client","Plan Manager","Hours","KM","Subtotal","GST","Total","Status","Payment Date","Remittance Ref"],
+    ...list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{
+      const cl=clients.find(x=>x.id===h.clientId);
+      const hrs=h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);
+      const km=h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0);
+      return[h.invoiceNum,h.date,h.clientName,cl?.pm?.org||"",hrs,km,(h.subtotal||h.total).toFixed(2),(h.gst||0).toFixed(2),h.total.toFixed(2),h.payStatus||"unpaid",h.payDate||"",h.remittanceRef||""];
+    })
+  ];
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`ndis-tax-FY${fy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("CSV exported ✓");
+}
+
 function populateReportMonths(){
   const sel=document.getElementById("rpt-month");
   const months=new Set();
