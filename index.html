@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NDIS Invoice — Independent Worker</title>
+
+<!-- PWA -->
+<meta name="application-name" content="NDIS Invoice"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="NDIS Invoice"/>
+<meta name="theme-color" content="#064e3b"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<link rel="manifest" id="pwa-manifest"/>
+
+<!-- PWA Icons (inline SVG as data URI) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23064e3b'/%3E%3Ctext x='256' y='320' font-size='260' text-anchor='middle' font-family='system-ui,sans-serif' fill='%236ee7b7'%3E%24%3C/text%3E%3C/svg%3E"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --green:#059669;--green-d:#047857;--green-xd:#064e3b;
+  --green-s:rgba(5,150,105,.08);--green-m:rgba(5,150,105,.15);
+  --sky:#ecfdf5;--mint:#6ee7b7;
+  --bg:#f0f4f2;--white:#fff;
+  --border:#e4ede9;--border2:#d1e0da;
+  --text:#111827;--sub:#6b7280;--faint:#9ca3af;
+  --red:#ef4444;--amber:#f59e0b;
+  --radius:10px;--radius-lg:16px;
+  --shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 12px 32px rgba(0,0,0,.06);
+}
+html{font-size:15px;}
+body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+.hidden{display:none!important;}
+.fade{animation:fu .22s ease both;}
+@keyframes fu{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── NAV ── */
+.nav{background:var(--green-xd);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:200;}
+.nav-brand{display:flex;align-items:center;gap:10px;}
+.nav-logo{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;}
+.nav-logo span{color:var(--mint);}
+.nav-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(255,255,255,.1);color:#6ee7b7;border-radius:4px;padding:2px 7px;letter-spacing:1px;text-transform:uppercase;}
+.nav-right{display:flex;gap:8px;align-items:center;}
+.nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#a7f3d0;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.nav-btn:hover{background:rgba(255,255,255,.18);}
+.nav-btn.active-tab{background:rgba(5,150,105,.35);border-color:var(--mint);}
+
+/* ── LAYOUT ── */
+.shell{display:flex;min-height:calc(100vh - 52px);}
+
+/* ── SIDEBAR ── */
+.sb{width:160px;background:var(--green-xd);flex-shrink:0;display:flex;flex-direction:column;padding:12px 8px 16px;transition:width .2s,padding .2s;overflow:hidden;position:relative;}
+.sb.slim{width:48px;padding:12px 6px 16px;}
+.sb-tog{position:absolute;top:10px;right:6px;background:rgba(255,255,255,.08);border:none;cursor:pointer;color:#6ee7b7;width:22px;height:22px;border-radius:5px;font-size:11px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;}
+.sb-tog:hover{background:rgba(255,255,255,.15);}
+.sb.slim .sb-tog{right:5px;}
+.sb-sect{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.25);padding:0 6px;margin:6px 0 8px;white-space:nowrap;}
+.sb.slim .sb-sect,.sb.slim .ci-name,.sb.slim .ci-acts,.sb.slim .sb-add-txt{display:none!important;}
+.sb.slim .ci-row{padding:7px 4px;justify-content:center;gap:0;}
+.ci-row{display:flex;align-items:center;gap:8px;padding:8px 8px 4px;cursor:pointer;border-radius:8px;margin-bottom:2px;transition:background .12s;}
+.ci-row:hover{background:rgba(255,255,255,.06);}
+.ci-wrap.active .ci-row{background:rgba(5,150,105,.25);}
+.ci-av{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.1);color:var(--mint);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ci-wrap.active .ci-av{background:var(--green);color:#fff;}
+.ci-name{font-size:12px;font-weight:500;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.ci-acts{display:flex;padding:0 8px 6px 42px;gap:2px;opacity:0;transition:opacity .15s;}
+.ci-wrap:hover .ci-acts{opacity:1;}
+.ci-acts button{background:none;border:none;cursor:pointer;font-size:13px;padding:3px 5px;border-radius:5px;color:rgba(255,255,255,.4);transition:all .12s;}
+.ci-acts button:hover{background:rgba(255,255,255,.1);color:#fff;}
+.sb-add{width:100%;margin-top:8px;padding:9px;border:1.5px dashed rgba(255,255,255,.15);background:none;color:rgba(255,255,255,.4);border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;font-family:'Inter',sans-serif;}
+.sb-add:hover{border-color:var(--mint);color:var(--mint);}
+.sb.slim .sb-add{padding:9px 0;}
+
+/* ── MAIN ── */
+.main{flex:1;padding:28px 24px;overflow-y:auto;min-width:0;}
+
+/* ── PAGE ── */
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── PAGE HEADER ── */
+.ph{margin-bottom:24px;}
+.ph-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:5px;}
+.ph-title{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.4px;}
+.ph-sub{font-size:13px;color:var(--sub);margin-top:4px;line-height:1.5;}
+.ph-row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:24px;}
+
+/* ── CARDS ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-hd{font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.card-hd-icon{width:28px;height:28px;background:var(--sky);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+
+/* ── FIELDS ── */
+.fg{display:grid;gap:13px;}
+.fg2{grid-template-columns:1fr 1fr;}
+.fg3{grid-template-columns:1fr 1fr 1fr;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11px;font-weight:600;color:var(--sub);letter-spacing:.2px;}
+.field input,.field select{background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s,background .15s;width:100%;}
+.field input:focus,.field select:focus{border-color:var(--green);background:#fff;box-shadow:0 0 0 3px var(--green-s);}
+.field input::placeholder{color:var(--faint);}
+.field select{cursor:pointer;}
+.field .hint{font-size:11px;color:var(--faint);margin-top:3px;line-height:1.4;}
+.mono{font-family:'IBM Plex Mono',monospace!important;font-size:13px!important;}
+.span2{grid-column:span 2;}
+
+/* ── DAY PILLS ── */
+.day-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;margin-top:6px;}
+.day-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+
+/* ── RATE BOX ── */
+.rate-box{background:var(--sky);border:1px solid #a7f3d0;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.rate-lbl{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green-d);margin-bottom:3px;}
+.rate-item{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#34d399;margin-top:2px;}
+.rate-num{font-size:22px;font-weight:700;color:var(--green-xd);letter-spacing:-.5px;}
+.rate-unit{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);}
+
+/* ── TOGGLE ── */
+.tog-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.tog{position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-track{position:absolute;inset:0;background:#d1d5db;border-radius:20px;transition:.2s;}
+.tog-thumb{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tog input:checked~.tog-track{background:var(--green);}
+.tog input:checked~.tog-track .tog-thumb{transform:translateX(16px);}
+.tog-lbl{font-size:13px;color:var(--sub);}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;transition:all .15s;white-space:nowrap;padding:10px 20px;}
+.btn-primary{background:var(--green);color:#fff;}
+.btn-primary:hover:not(:disabled){background:var(--green-d);transform:translateY(-1px);box-shadow:0 4px 14px rgba(5,150,105,.3);}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important;}
+.btn-dark{background:var(--green-xd);color:#a7f3d0;}
+.btn-dark:hover:not(:disabled){background:#043d31;transform:translateY(-1px);box-shadow:0 4px 14px rgba(6,78,59,.3);}
+.btn-dark:disabled{opacity:.35;cursor:not-allowed;}
+.btn-ghost{background:#fff;color:var(--sub);border:1.5px solid var(--border2);font-weight:500;}
+.btn-ghost:hover{background:var(--bg);border-color:var(--border2);}
+.btn-soft{background:var(--sky);color:var(--green-d);border:1px solid #a7f3d0;font-weight:500;}
+.btn-soft:hover{background:#d1fae5;}
+.btn-danger{background:#fef2f2;color:var(--red);border:1px solid #fecaca;font-weight:500;}
+.btn-danger:hover{background:#fee2e2;}
+.btn-sm{padding:6px 12px!important;font-size:12px!important;}
+.btn-row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;}
+
+/* ── SESSIONS ── */
+.svc-row{display:grid;grid-template-columns:140px 1fr 70px 88px 26px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
+.svc-row:last-child{border-bottom:none;}
+.svc-date-col{display:flex;flex-direction:column;gap:3px;}
+.svc-desc{font-size:13px;color:var(--text);font-weight:500;line-height:1.3;}
+.svc-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);margin-top:2px;}
+.svc-notes{font-size:11px;color:var(--faint);margin-top:1px;}
+.svc-qty{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.svc-amt{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--green-xd);text-align:right;}
+.svc-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:17px;line-height:1;padding:0 2px;transition:color .12s;}
+.svc-del:hover{color:var(--red);}
+.date-inline{background:transparent;border:none;border-bottom:1.5px solid var(--border2);border-radius:0;padding:3px 2px;font-size:11px;color:var(--green-xd);font-family:'IBM Plex Mono',monospace;width:auto;outline:none;}
+.date-inline:focus{border-bottom-color:var(--green);}
+.qty-inline{width:56px;text-align:center;background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:5px 4px;font-size:12px;font-family:'IBM Plex Mono',monospace;outline:none;color:var(--text);}
+.qty-inline:focus{border-color:var(--green);}
+
+/* ── STICKY TOTAL BAR ── */
+.total-bar{display:flex;justify-content:space-between;align-items:center;background:var(--green-xd);border-radius:10px;padding:13px 18px;margin-top:10px;}
+.total-bar-lbl{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#6ee7b7;}
+.total-bar-amt{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.5px;}
+.total-bar-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a7f3d0;margin-top:2px;}
+.sticky-total{position:sticky;bottom:0;padding:10px 0 2px;background:linear-gradient(transparent,var(--bg) 30%);z-index:50;}
+
+/* ── GST SECTION ── */
+.gst-section{background:var(--sky);border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;margin-top:8px;}
+.gst-line{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:3px 0;}
+.gst-line.total{font-weight:700;font-size:14px;color:var(--green-xd);border-top:1px solid #a7f3d0;margin-top:4px;padding-top:6px;}
+
+/* ── DASHBOARD TILES ── */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+.ctile{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+.ctile:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border2);}
+.ctile-av{width:46px;height:46px;border-radius:12px;background:var(--sky);color:var(--green-d);font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
+.ctile-name{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px;margin-bottom:3px;}
+.ctile-ndis{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);margin-bottom:4px;}
+.ctile-pm{font-size:12px;color:var(--sub);margin-bottom:14px;line-height:1.4;}
+.ctile-actions{display:flex;flex-direction:column;gap:6px;}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:56px 24px;background:#fff;border-radius:var(--radius-lg);border:1.5px dashed var(--border2);box-shadow:var(--shadow);}
+.empty-icon{font-size:36px;margin-bottom:10px;}
+.empty-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.empty-sub{font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.5;}
+
+/* ── DISCLAIMER ── */
+.disc{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#92400e;margin-top:12px;line-height:1.5;}
+
+/* ── INVOICE HISTORY ── */
+.hist-list{display:flex;flex-direction:column;gap:8px;}
+.hist-row{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;transition:box-shadow .15s;}
+.hist-row:hover{box-shadow:var(--shadow-md);}
+.hist-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--green-xd);}
+.hist-client{font-size:13px;font-weight:500;color:var(--text);}
+.hist-date{font-size:11px;color:var(--faint);}
+.hist-amt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--green-d);}
+.hist-actions{display:flex;gap:6px;}
+.hist-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.hist-badge.gst{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+.hist-empty{text-align:center;padding:40px;color:var(--faint);font-size:13px;}
+
+/* ── MONTHLY REPORT ── */
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);}
+.stat-icon{font-size:20px;margin-bottom:8px;}
+.stat-val{font-size:22px;font-weight:700;color:var(--green-xd);letter-spacing:-.5px;}
+.stat-lbl{font-size:11px;color:var(--faint);margin-top:3px;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;}
+.month-picker{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+.month-picker select{background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;}
+.month-picker select:focus{border-color:var(--green);}
+.breakdown-table{width:100%;border-collapse:collapse;}
+.breakdown-table th{font-size:11px;font-weight:600;color:var(--sub);padding:8px 10px;text-align:left;border-bottom:1.5px solid var(--border);background:var(--bg);border-radius:4px;}
+.breakdown-table td{font-size:13px;padding:10px 10px;border-bottom:1px solid var(--border);color:var(--text);}
+.breakdown-table tr:last-child td{border-bottom:none;}
+.breakdown-table td.r{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+.breakdown-table tr:hover td{background:var(--sky);}
+.client-bar{height:6px;border-radius:3px;background:var(--green);margin-top:4px;transition:width .3s;}
+
+/* ── INVOICE ── */
+.inv-wrap{background:#fff;max-width:720px;font-family:'Inter',sans-serif;font-size:13px;color:#111;}
+.inv-hdr{padding:20px 28px 14px;}
+.inv-worker-title{font-size:12px;color:#555;margin-bottom:2px;}
+.inv-worker-name{font-size:16px;font-weight:700;color:#111;margin-bottom:6px;}
+.inv-worker-det{font-size:12px;color:#444;line-height:1.75;}
+.inv-num-row{margin-top:14px;padding-top:12px;border-top:1px solid #ccc;}
+.inv-inv-num{font-size:14px;font-weight:700;color:#111;}
+.inv-submitted{font-size:12px;color:#555;margin-top:2px;}
+.inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:12px 28px;border:1px solid #bbb;}
+.inv-party{padding:12px 14px;}
+.inv-party+.inv-party{border-left:1px solid #bbb;}
+.inv-plbl{font-size:11px;font-weight:700;color:#111;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.inv-pdet{font-size:12px;color:#333;line-height:1.75;}
+.inv-body{padding:0 28px 20px;}
+.inv-table{width:100%;border-collapse:collapse;}
+.inv-table th{font-size:11px;font-weight:700;color:#111;padding:7px 6px;text-align:left;border-top:1px solid #888;border-bottom:1px solid #888;background:#f5f5f5;}
+.inv-table th.r{text-align:right;}
+.inv-table td{padding:6px 6px;vertical-align:top;font-size:12px;color:#222;border-bottom:1px solid #e0e0e0;}
+.inv-table td.r{text-align:right;font-size:12px;}
+.inv-table td.amt{text-align:right;font-size:12px;font-weight:600;}
+.inv-desc-cell{line-height:1.4;}
+.inv-desc-main{font-weight:500;}
+.inv-desc-item{font-size:11px;color:#666;font-family:'IBM Plex Mono',monospace;margin-top:1px;}
+.inv-totals-row td{border-top:1px solid #888;border-bottom:none;font-size:12px;padding:7px 6px;}
+.inv-totals-row td.amt{font-weight:700;font-size:13px;}
+.inv-gst-row td{font-size:12px;padding:4px 6px;color:#555;}
+.inv-grand-row td{border-top:2px solid #333;font-size:13px;font-weight:700;padding:7px 6px;}
+.inv-grand-row td.amt{font-size:14px;}
+.inv-th-hours{font-size:11px;font-weight:700;padding:7px 6px;color:#555;}
+.inv-hours-val{font-size:12px;padding:7px 6px;color:#333;}
+.inv-footer{padding:14px 28px 18px;border-top:1px solid #ccc;font-size:12px;color:#111;line-height:1.9;}
+.inv-footer strong{font-weight:700;}
+.inv-disc-bar{padding:8px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#92400e;line-height:1.5;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green-xd);color:#a7f3d0;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:toastIn .2s ease;pointer-events:none;}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── MODAL ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:#fff;border-radius:var(--radius-lg);padding:26px;max-width:480px;width:100%;box-shadow:var(--shadow-md);animation:fu .2s ease;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--sub);margin-bottom:18px;}
+.modal-btns{display:flex;gap:8px;margin-top:20px;justify-content:flex-end;}
+
+/* ── CLIENT HISTORY PANEL ── */
+.svc-shell{display:flex;gap:18px;align-items:flex-start;}
+.svc-main{flex:1;min-width:0;}
+.cl-hist-panel{width:230px;flex-shrink:0;background:var(--green-xd);border-radius:var(--radius-lg);padding:12px 10px;position:sticky;top:72px;max-height:calc(100vh - 90px);overflow-y:auto;}
+.cl-hist-panel::-webkit-scrollbar{width:4px;}
+.cl-hist-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px;}
+.cl-hist-hd{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);padding:0 4px;margin-bottom:10px;}
+.cl-hist-item{padding:8px 10px;border-radius:8px;margin-bottom:4px;cursor:pointer;transition:background .12s;border:1px solid transparent;}
+.cl-hist-item:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);}
+.cl-hist-item.active-hist{background:rgba(5,150,105,.3);border-color:rgba(110,231,183,.2);}
+.cl-hist-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--mint);}
+.cl-hist-date{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px;}
+.cl-hist-amt{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a7f3d0;margin-top:3px;}
+.cl-hist-empty{font-size:11px;color:rgba(255,255,255,.25);text-align:center;padding:20px 0;font-style:italic;}
+@media(max-width:900px){
+  .svc-shell{flex-direction:column;}
+  .cl-hist-panel{width:100%;position:static;max-height:200px;order:-1;}
+  .cl-hist-panel{display:flex;flex-direction:row;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;padding:10px;}
+  .cl-hist-item{flex-shrink:0;min-width:120px;}
+  .cl-hist-hd{display:none;}
+}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  html,body{background:#fff!important;height:auto!important;min-height:0!important;overflow:visible!important;}
+  .nav,.sb,.ph-row,.ph,.btn-row,.disc,.page-actions,.sticky-total,.toast,.mobile-add-fab,.cl-hist-panel,.svc-shell{display:none!important;}
+  .shell{display:block!important;min-height:0!important;}
+  .main{padding:0!important;background:#fff!important;overflow:visible!important;min-width:0!important;}
+  .page{display:none!important;}
+  .page.active{display:block!important;}
+  #page-invoice{margin:0;padding:0;}
+  .inv-wrap{border:none!important;box-shadow:none!important;border-radius:0!important;max-width:100%!important;page-break-after:avoid;}
+  .inv-disc-bar{display:none!important;}
+  .inv-wrap *{page-break-inside:avoid;}
+}
+
+/* ── MOBILE ── */
+@media(max-width:680px){
+  .sb{display:none;}
+  .main{padding:14px 12px 80px;}
+  .fg2,.fg3{grid-template-columns:1fr!important;}
+  .span2{grid-column:span 1!important;}
+  .inv-parties{grid-template-columns:1fr!important;}
+  .inv-hdr{flex-direction:column;padding:18px 20px!important;}
+  .inv-meta{text-align:left!important;}
+  .inv-body{padding:0 16px 16px!important;}
+  .inv-footer{padding:14px 16px!important;grid-template-columns:1fr!important;}
+  .inv-disc-bar{padding:10px 16px!important;}
+  .svc-row{grid-template-columns:1fr 1fr;gap:8px;}
+  .svc-date-col{grid-column:1/-1;}
+  .svc-del{justify-self:end;}
+  .svc-amt{text-align:left;}
+  .dash-grid{grid-template-columns:1fr 1fr;}
+  .ph-row{flex-direction:column;}
+  .ph-row>div:last-child{align-self:stretch;}
+  .ph-row>div:last-child .btn{width:100%;justify-content:center;}
+  .hist-row{grid-template-columns:1fr auto;gap:8px;}
+  .hist-num{grid-column:1/-1;}
+  .hist-actions{grid-column:1/-1;}
+  .report-grid{grid-template-columns:1fr 1fr;}
+  /* Mobile sticky add button */
+  .mobile-add-fab{display:flex;position:fixed;bottom:16px;right:16px;z-index:100;background:var(--green);color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:24px;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(5,150,105,.4);cursor:pointer;}
+}
+@media(min-width:681px){
+  .mobile-add-fab{display:none!important;}
+}
+@media(max-width:480px){
+  .dash-grid{grid-template-columns:1fr;}
+  .report-grid{grid-template-columns:1fr;}
+}
+</style>
+<script>
+// ── PWA Setup ─────────────────────────────────────────────────────────────────
+(function(){
+  // Inject manifest as a blob so it works from a local file
+  const manifest={
+    name:"NDIS Invoice",
+    short_name:"NDIS Invoice",
+    description:"NDIS invoicing tool for independent support workers",
+    start_url:".",
+    display:"standalone",
+    background_color:"#064e3b",
+    theme_color:"#064e3b",
+    orientation:"portrait-primary",
+    icons:[
+      {
+        src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23064e3b'/%3E%3Ctext x='256' y='320' font-size='260' text-anchor='middle' font-family='system-ui,sans-serif' fill='%236ee7b7'%3E%24%3C/text%3E%3C/svg%3E",
+        sizes:"512x512",
+        type:"image/svg+xml",
+        purpose:"any maskable"
+      }
+    ]
+  };
+  const blob=new Blob([JSON.stringify(manifest)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  document.getElementById("pwa-manifest").href=url;
+
+  // Register service worker (inline as blob for local file use)
+  if("serviceWorker" in navigator){
+    const swCode=`
+      const CACHE="ndis-invoice-v1";
+      const ASSETS=[self.location.href];
+      self.addEventListener("install",e=>{
+        e.waitUntil(
+          caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())
+        );
+      });
+      self.addEventListener("activate",e=>{
+        e.waitUntil(
+          caches.keys().then(keys=>Promise.all(
+            keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
+          )).then(()=>self.clients.claim())
+        );
+      });
+      self.addEventListener("fetch",e=>{
+        e.respondWith(
+          caches.match(e.request).then(cached=>cached||fetch(e.request).catch(()=>caches.match(e.request)))
+        );
+      });
+    `;
+    const swBlob=new Blob([swCode],{type:"application/javascript"});
+    const swUrl=URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl).catch(()=>{
+      // Service worker may fail from file:// - that's ok, app still works
+    });
+  }
+})();
+</script>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-logo" onclick="goPage('dashboard')">NDIS<span>invoice</span></span>
+    <span class="nav-badge">2025–26</span>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" id="nav-history" onclick="goPage('history')">📋 History</button>
+    <button class="nav-btn" id="nav-report" onclick="goPage('report')">📊 Report</button>
+    <button class="nav-btn" onclick="exportData()" title="Export all data as a backup file">💾 Backup</button>
+    <button class="nav-btn" onclick="importData()" title="Restore from a backup file">📂 Restore</button>
+    <button class="nav-btn" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
+    <button class="nav-btn hidden" id="install-btn" onclick="installApp()" title="Install as app on this device">📲 Install App</button>
+    <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)"/>
+  </div>
+</nav>
+
+<div class="shell">
+  <aside class="sb slim" id="sb">
+    <button class="sb-tog" id="sb-tog" onclick="toggleSb()" title="Toggle sidebar">▶</button>
+    <div class="sb-sect">Clients</div>
+    <div id="ci-list"></div>
+    <button class="sb-add" onclick="newClient()"><span>＋</span><span class="sb-add-txt">Add Client</span></button>
+  </aside>
+
+  <div class="main" id="main">
+
+    <!-- ── SETTINGS ── -->
+    <div class="page fade" id="page-settings">
+      <div class="ph">
+        <div class="ph-eyebrow">Setup</div>
+        <div class="ph-title">Your Profile</div>
+        <div class="ph-sub">Saved on this device — appears on every invoice.</div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-icon">👤</span> Worker / Business Details</div>
+        <div class="fg fg2">
+          <div class="field"><label>Full Name / Business Name *</label><input id="s-name" placeholder="e.g. Sarah Johnson Support Services"/></div>
+          <div class="field"><label>Title / Role</label><input id="s-title" placeholder="e.g. Disability support worker"/></div>
+          <div class="field"><label>ABN</label><input id="s-abn" placeholder="12 345 678 901" class="mono"/></div>
+          <div class="field span2"><label>Address</label><input id="s-address" placeholder="e.g. 36 Minyama Pde Bega, 2550, NSW"/></div>
+          <div class="field"><label>Phone</label><input id="s-phone" placeholder="0400 000 000"/></div>
+          <div class="field"><label>Email</label><input id="s-email" type="email" placeholder="sarah@email.com"/></div>
+          <div class="field span2"><label>Payable To Name <span style="font-weight:400;color:var(--faint)">(on invoice — e.g. J &amp; N Robinson)</span></label><input id="s-payable" placeholder="Leave blank to use your name above"/></div>
+          <div class="field span2"><label>Invoice Prefix Override <span style="font-weight:400;color:var(--faint)">(leave blank to auto-use client initials)</span></label><input id="s-prefix" placeholder="e.g. NM" class="mono" maxlength="6"/></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-icon">🏦</span> Bank Details</div>
+        <div class="fg fg3">
+          <div class="field"><label>Bank Name</label><input id="s-bank" placeholder="Commonwealth Bank"/></div>
+          <div class="field"><label>BSB</label><input id="s-bsb" placeholder="062-000" class="mono"/></div>
+          <div class="field"><label>Account Number</label><input id="s-acc" placeholder="12345678" class="mono"/></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="save-btn" onclick="saveWorker()">Save Profile</button>
+        <button class="btn btn-ghost" onclick="goPage('dashboard')">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page" id="page-dashboard">
+      <div class="ph">
+        <div class="ph-eyebrow">Dashboard</div>
+        <div class="ph-title" id="dash-greet">Hello 👋</div>
+        <div class="ph-sub">Select a client to create an invoice, or add a new one below.</div>
+      </div>
+      <div id="dash-body"></div>
+    </div>
+
+    <!-- ── CLIENT EDIT ── -->
+    <div class="page" id="page-client">
+      <div class="ph">
+        <div class="ph-eyebrow" id="cl-eyebrow">New Client</div>
+        <div class="ph-title" id="cl-title">Add Participant</div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-icon">🧑</span> NDIS Participant</div>
+        <div class="fg fg2">
+          <div class="field"><label>Participant Name *</label><input id="cl-name" placeholder="e.g. Michael Chen"/></div>
+          <div class="field"><label>NDIS Number *</label><input id="cl-ndis" placeholder="43 000 000 00" class="mono"/></div>
+          <div class="field"><label>Plan Start Date</label><input type="date" id="cl-plan-start"/></div>
+          <div class="field"><label>Plan End Date</label><input type="date" id="cl-plan-end"/></div>
+          <div class="field span2"><label>Participant Address <span style="font-weight:400;color:var(--faint)">(optional)</span></label><input id="cl-address" placeholder="e.g. 10 Union Street Bega"/></div>
+        </div>
+      </div>
+      <div class="card" style="border:1.5px solid #a7f3d0;background:#f0fdf9;">
+        <div class="card-hd" style="border-bottom-color:#a7f3d0;"><span class="card-hd-icon">🔢</span> Invoice Numbering <span style="font-size:11px;font-weight:400;color:var(--sub);">— set once per client, then auto-increments</span></div>
+        <div class="fg fg2">
+          <div class="field">
+            <label>Client Initials * <span style="font-weight:400;color:var(--faint)">(used as invoice prefix)</span></label>
+            <input id="cl-inv-prefix" placeholder="e.g. MC for Michael Chen" class="mono" maxlength="6" style="font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;" oninput="updateInvPreview()"/>
+            <span class="hint">Every invoice for this client will start with these letters</span>
+          </div>
+          <div class="field">
+            <label>Start at invoice number * <span style="font-weight:400;color:var(--faint)">(for existing clients, enter your current number)</span></label>
+            <input id="cl-inv-startnum" type="number" min="1" placeholder="e.g. 201" class="mono" style="font-size:18px;font-weight:700;" oninput="updateInvPreview()"/>
+            <span class="hint" id="cl-inv-preview"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-icon">🏢</span> Plan Manager</div>
+        <div class="fg fg2">
+          <div class="field"><label>Organisation Name *</label><input id="cl-pmorg" placeholder="e.g. My Plan Manager"/></div>
+          <div class="field"><label>Contact Name</label><input id="cl-pmcontact" placeholder="Accounts Team"/></div>
+          <div class="field"><label>Email</label><input id="cl-pmemail" placeholder="invoices@planmanager.com.au"/></div>
+          <div class="field"><label>Phone</label><input id="cl-pmphone" placeholder="1300 000 000"/></div>
+          <div class="field span2"><label>Street / PO Box Address</label><input id="cl-pmaddress" placeholder="PO Box 123, Level 4 / 56 Smith St"/></div>
+          <div class="field"><label>Suburb</label><input id="cl-pmsuburb" placeholder="Sydney"/></div>
+          <div class="fg fg2" style="display:contents;">
+            <div class="field"><label>State</label>
+              <select id="cl-pmstate"><option>NSW</option><option>VIC</option><option>QLD</option><option>WA</option><option>SA</option><option>TAS</option><option>ACT</option><option>NT</option></select>
+            </div>
+            <div class="field"><label>Postcode</label><input id="cl-pmpost" placeholder="2000" class="mono"/></div>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveClient()">Save Client</button>
+        <button class="btn btn-ghost" onclick="goPage('dashboard')">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ── JOB / SESSIONS ── -->
+    <div class="page" id="page-services">
+      <div class="svc-shell">
+      <div class="svc-main">
+      <div class="ph-row">
+        <div>
+          <div class="ph-eyebrow">New Invoice</div>
+          <div class="ph-title" id="svc-cl-name">Client</div>
+          <div class="ph-sub" id="svc-cl-sub"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;margin-top:4px;">
+          <div class="field" style="min-width:160px;"><label>Invoice Number</label><input id="f-invnum" class="mono" placeholder="e.g. MC52" style="background:#fff;"/></div>
+          <button class="btn btn-soft btn-sm" onclick="loadLastWeek()">🔁 Repeat Last +7 Days</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-icon">➕</span> Add a Session</div>
+        <div class="fg fg2">
+          <div>
+            <div class="field">
+              <label>Date of Support *</label>
+              <input type="date" id="f-date" oninput="onDateChange()"/>
+            </div>
+            <div id="day-badge-wrap"></div>
+          </div>
+          <div class="field">
+            <label>Support Type *</label>
+            <select id="f-support" onchange="onSupportChange()">
+              <option value="">— Select —</option>
+              <option value="personal_care">Personal Care &amp; Daily Activities</option>
+              <option value="community">Community Access &amp; Social Activities</option>
+              <option value="household">Household Tasks &amp; Domestic Assistance</option>
+              <option value="support_coord">Support Coordination</option>
+              <option value="life_skills">Life Skills &amp; Capacity Building</option>
+              <option value="transport">Provider Travel (per km)</option>
+            </select>
+            <span class="hint" id="f-support-cat"></span>
+          </div>
+        </div>
+        <div id="eve-wrap" class="hidden">
+          <div class="tog-row">
+            <label class="tog"><input type="checkbox" id="f-eve" onchange="onEveChange()"/><span class="tog-track"><span class="tog-thumb"></span></span></label>
+            <span class="tog-lbl">Evening shift (after 8 PM weekday)</span>
+          </div>
+        </div>
+        <div id="rate-wrap"></div>
+        <div class="fg fg2" style="margin-top:14px;">
+          <div class="field">
+            <label id="qty-lbl">Hours *</label>
+            <input type="number" id="f-qty" min="0" step="0.25" placeholder="e.g. 2.5" oninput="onQtyChange()"/>
+            <span class="hint" id="f-total-hint"></span>
+          </div>
+          <div class="field">
+            <label>Session Notes <span style="font-weight:400;color:var(--faint)">(optional)</span></label>
+            <input id="f-notes" placeholder="e.g. Morning routine, community walk"/>
+          </div>
+        </div>
+        <!-- GST Toggle -->
+        <div class="tog-row" style="margin-top:14px;">
+          <label class="tog"><input type="checkbox" id="f-gst" onchange="renderSessions()"/><span class="tog-track"><span class="tog-thumb"></span></span></label>
+          <span class="tog-lbl">Add GST (10%) — most NDIS services are GST-free</span>
+        </div>
+        <button class="btn btn-dark" style="width:100%;margin-top:14px;justify-content:center;" id="add-btn" onclick="addSession()" disabled>＋ Add to Invoice <kbd style="font-size:10px;opacity:.6;border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 5px;margin-left:4px;">Enter</kbd></button>
+      </div>
+
+      <div class="card hidden" id="sessions-card">
+        <div class="card-hd">
+          <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📋</span> <span id="sess-count">Sessions</span></span>
+        </div>
+        <div id="sess-list"></div>
+        <div id="sess-total"></div>
+        <div class="sticky-total" id="sticky-total-wrap"></div>
+      </div>
+
+      <div class="card" id="notes-card">
+        <div class="card-hd"><span class="card-hd-icon">📝</span> Invoice Notes <span style="font-size:11px;font-weight:400;color:var(--faint)">(optional)</span></div>
+        <div class="field"><input id="f-invnotes" placeholder="e.g. Thank you for your continued support"/></div>
+      </div>
+      <div class="disc">⚠ Rates from NDIS Pricing Arrangements and Price Limits 2025–26 v1.1 (effective 1 July 2025, updated 24 November 2025). Always verify at ndis.gov.au before submitting claims.</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="gen-btn" onclick="goInvoice()" disabled>Generate Invoice →</button>
+        <button class="btn btn-ghost" onclick="goPage('dashboard')">← Dashboard</button>
+      </div>
+      </div><!-- /svc-main -->
+      <!-- Client invoice history sidebar -->
+      <div class="cl-hist-panel" id="cl-hist-panel">
+        <div class="cl-hist-hd">Past Invoices</div>
+        <div id="cl-hist-list"><div class="cl-hist-empty">No invoices yet</div></div>
+      </div>
+      </div><!-- /svc-shell -->
+    </div>
+
+    <!-- ── INVOICE ── -->
+    <div class="page" id="page-invoice">
+      <div class="ph-row">
+        <div>
+          <div class="ph-eyebrow">Ready to Send</div>
+          <div class="ph-title" id="inv-num-head">Invoice</div>
+        </div>
+        <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+          <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
+          <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
+        </div>
+      </div>
+      <div id="inv-render"></div>
+    </div>
+
+    <!-- ── INVOICE HISTORY ── -->
+    <div class="page" id="page-history">
+      <div class="ph-row">
+        <div>
+          <div class="ph-eyebrow">Records</div>
+          <div class="ph-title">Invoice History</div>
+          <div class="ph-sub">All generated invoices — click to view or reopen for editing.</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+          <select id="hist-filter-client" onchange="renderHistory()" style="background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer;">
+            <option value="">All clients</option>
+          </select>
+          <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">🗑 Clear All</button>
+        </div>
+      </div>
+      <div id="hist-body"></div>
+    </div>
+
+    <!-- ── MONTHLY REPORT ── -->
+    <div class="page" id="page-report">
+      <div class="ph">
+        <div class="ph-eyebrow">Analytics</div>
+        <div class="ph-title">Monthly Report</div>
+        <div class="ph-sub">Income, hours and session breakdown from your invoice history.</div>
+      </div>
+      <div class="month-picker">
+        <select id="rpt-month" onchange="renderReport()"></select>
+        <select id="rpt-client" onchange="renderReport()">
+          <option value="">All clients</option>
+        </select>
+      </div>
+      <div id="rpt-body"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Mobile FAB -->
+<button class="mobile-add-fab hidden" id="mob-fab" onclick="document.getElementById('f-date').focus()" title="Add session">＋</button>
+
+<script>
+// ── NDIS 2025-26 Data ─────────────────────────────────────────────────────────
+const PH = new Set([
+  "2024-01-01","2024-01-26","2024-03-29","2024-03-30","2024-04-01","2024-04-25","2024-12-25","2024-12-26",
+  "2025-01-01","2025-01-27","2025-04-18","2025-04-19","2025-04-21","2025-04-25","2025-12-25","2025-12-26",
+  "2026-01-01","2026-01-26","2026-04-03","2026-04-04","2026-04-06","2026-04-25","2026-12-25","2026-12-28",
+]);
+
+const DAY_META={
+  weekday:        {label:"Weekday",         color:"#065f46",bg:"#d1fae5"},
+  weekday_evening:{label:"Eve Weekday",     color:"#5b21b6",bg:"#ede9fe"},
+  saturday:       {label:"Saturday",        color:"#92400e",bg:"#fef3c7"},
+  sunday:         {label:"Sunday",          color:"#991b1b",bg:"#fee2e2"},
+  public_holiday: {label:"Public Holiday 🎉",color:"#be185d",bg:"#fdf2f8"},
+};
+
+const SUPPORTS={
+  personal_care: {label:"Personal Care & Daily Activities",short:"Assistance with Self-Care Activities",cat:"01 – Daily Life",hasEvening:true,
+    rates:{weekday:{item:"01_011_0107_1_1",rate:70.23},weekday_evening:{item:"01_015_0107_1_1",rate:77.38},saturday:{item:"01_013_0107_1_1",rate:98.83},sunday:{item:"01_014_0107_1_1",rate:127.43},public_holiday:{item:"01_012_0107_1_1",rate:156.03}}},
+  community:{label:"Community Access & Social Activities",short:"Access Community Social and Recreational Activities",cat:"04 – Social & Community",hasEvening:true,
+    rates:{weekday:{item:"04_104_0125_6_1",rate:70.23},weekday_evening:{item:"04_103_0125_6_1",rate:77.38},saturday:{item:"04_105_0125_6_1",rate:98.83},sunday:{item:"04_106_0125_6_1",rate:127.43},public_holiday:{item:"04_102_0125_6_1",rate:156.03}}},
+  household:{label:"Household Tasks & Domestic Assistance",short:"House Cleaning and Other Household Activities",cat:"01 – Daily Life",hasEvening:false,
+    rates:{weekday:{item:"01_020_0120_1_1",rate:58.03},weekday_evening:{item:"01_020_0120_1_1",rate:58.03},saturday:{item:"01_020_0120_1_1",rate:58.03},sunday:{item:"01_020_0120_1_1",rate:58.03},public_holiday:{item:"01_020_0120_1_1",rate:58.03}}},
+  support_coord:{label:"Support Coordination",short:"Support Coordination",cat:"07 – Support Coordination",hasEvening:false,
+    rates:{weekday:{item:"07_002_0106_8_3",rate:100.14},weekday_evening:{item:"07_002_0106_8_3",rate:100.14},saturday:{item:"07_002_0106_8_3",rate:100.14},sunday:{item:"07_002_0106_8_3",rate:100.14},public_holiday:{item:"07_002_0106_8_3",rate:100.14}}},
+  life_skills:{label:"Life Skills & Capacity Building",short:"Skill Development and Training",cat:"15 – Improved Daily Living",hasEvening:false,
+    rates:{weekday:{item:"15_037_0117_1_3",rate:70.23},weekday_evening:{item:"15_037_0117_1_3",rate:70.23},saturday:{item:"15_037_0117_1_3",rate:70.23},sunday:{item:"15_037_0117_1_3",rate:70.23},public_holiday:{item:"15_037_0117_1_3",rate:70.23}}},
+  transport:{label:"Provider Travel (per km)",short:"Provider Travel – Non-Labour Costs",cat:"01 – Daily Life",hasEvening:false,unit:"km",
+    rates:{weekday:{item:"01_799_0107_1_1",rate:0.99},weekday_evening:{item:"01_799_0107_1_1",rate:0.99},saturday:{item:"01_799_0107_1_1",rate:0.99},sunday:{item:"01_799_0107_1_1",rate:0.99},public_holiday:{item:"01_799_0107_1_1",rate:0.99}}},
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const aud=n=>new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
+const fmtD=s=>s?new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"}):"";
+const fmtShort=s=>s?new Date(s+"T12:00:00").toLocaleDateString("en-AU",{day:"2-digit",month:"2-digit",year:"numeric"}):"";
+const fmtMonthYear=s=>s?new Date(s+"T12:00:00").toLocaleDateString("en-AU",{month:"long",year:"numeric"}):"";
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#x27;");
+const today=new Date();
+const todayShort=today.toLocaleDateString("en-AU",{day:"2-digit",month:"2-digit",year:"numeric"});
+const todayLong=today.toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+
+function getDayType(date,eve){
+  if(!date) return null;
+  if(PH.has(date)) return "public_holiday";
+  const d=new Date(date+"T12:00:00").getDay();
+  if(d===0) return "sunday";
+  if(d===6) return "saturday";
+  return eve?"weekday_evening":"weekday";
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+const ls={
+  get:k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){alert("Storage full — some data may not be saved.");}}
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let worker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1};
+let clients=[];
+let activeId=null;
+let editId=null;
+let sessions=[];
+let invoiceHistory=[]; // [{id, clientId, clientName, invoiceNum, date, total, gst, sessions, notes}]
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+window.addEventListener("error",e=>{console.error("App error:",e.message,e.filename,e.lineno);});
+// ── PWA Install Prompt ────────────────────────────────────────────────────────
+let _installPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  _installPrompt=e;
+  const btn=document.getElementById("install-btn");
+  if(btn) btn.classList.remove("hidden");
+});
+window.addEventListener("appinstalled",()=>{
+  _installPrompt=null;
+  const btn=document.getElementById("install-btn");
+  if(btn) btn.classList.add("hidden");
+  toast("App installed! ✓ Find it on your home screen");
+});
+function installApp(){
+  if(!_installPrompt){
+    toast("To install: tap ⋮ Menu → Add to Home Screen");
+    return;
+  }
+  _installPrompt.prompt();
+  _installPrompt.userChoice.then(()=>{_installPrompt=null;});
+}
+
+window.addEventListener("load",()=>{
+  try{
+    const w=ls.get("ndis-worker"),c=ls.get("ndis-clients"),h=ls.get("ndis-history");
+    if(w) worker={...worker,...w};
+    if(c) clients=c;
+    if(h) invoiceHistory=h;
+    renderSidebar();
+    populateReportMonths();
+    if(!worker.name){populateSettings();goPage("settings");}
+    else goPage("dashboard");
+  }catch(err){
+    console.error("Boot error:",err);
+    document.getElementById("page-dashboard").classList.add("active");
+    document.querySelector(".main").innerHTML='<div style="padding:40px;text-align:center;"><div style="font-size:24px;margin-bottom:12px;">⚠️</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Something went wrong loading the app</div><div style="font-size:13px;color:#6b7280;margin-bottom:20px;">'+err.message+'</div><button onclick="localStorage.clear();location.reload()" style="background:#059669;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Reset &amp; Reload</button></div>';
+  }
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==="p"){e.preventDefault();if(document.getElementById("page-invoice").classList.contains("active"))window.print();}
+  if((e.ctrlKey||e.metaKey)&&e.key==="s"){e.preventDefault();const pg=document.querySelector(".page.active")?.id;if(pg==="page-settings")saveWorker();else if(pg==="page-client")saveClient();}
+  if(e.key==="Enter"&&document.getElementById("page-services").classList.contains("active")){
+    const ab=document.getElementById("add-btn");if(ab&&!ab.disabled){e.preventDefault();addSession();}
+  }
+});
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function goPage(name){
+  try{
+    document.querySelectorAll(".page").forEach(p=>{p.classList.remove("active","fade");});
+    const pg=document.getElementById("page-"+name);
+    if(!pg)return;
+    pg.classList.add("active");
+    void pg.offsetWidth;
+    pg.classList.add("fade");
+    const sb=document.getElementById("sb");
+    if(sb) sb.style.display=(name==="invoice"||name==="settings"||name==="history"||name==="report")?"none":"flex";
+    // Mobile FAB — guard against null
+    const fab=document.getElementById("mob-fab");
+    if(fab) fab.classList.toggle("hidden",name!=="services");
+    // Nav button highlight
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active-tab"));
+    const navMap={history:"nav-history",report:"nav-report",settings:"nav-settings"};
+    if(navMap[name]){const el=document.getElementById(navMap[name]);if(el)el.classList.add("active-tab");}
+    if(name==="dashboard") renderDashboard();
+    if(name==="settings") populateSettings();
+    if(name==="history"){populateHistoryFilter();renderHistory();}
+    if(name==="report"){populateReportClients();renderReport();}
+  }catch(err){console.error("goPage error:",err);}
+}
+
+function toggleSb(){
+  const sb=document.getElementById("sb"),t=document.getElementById("sb-tog");
+  sb.classList.toggle("slim");
+  t.textContent=sb.classList.contains("slim")?"▶":"◀";
+}
+
+// ── Backup / Restore ──────────────────────────────────────────────────────────
+function exportData(){
+  const data={
+    exportedAt:new Date().toISOString(),
+    version:1,
+    worker,
+    clients,
+    invoiceHistory
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const date=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download=`ndis-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("Backup saved ✓");
+}
+
+function importData(){
+  document.getElementById("import-file-input").value="";
+  document.getElementById("import-file-input").click();
+}
+
+function handleImportFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.worker||!data.clients||!data.invoiceHistory){
+        alert("This doesn't look like a valid NDIS Invoice backup file.");return;
+      }
+      if(!confirm(`This will replace all your current data with the backup from ${data.exportedAt?new Date(data.exportedAt).toLocaleDateString("en-AU"):"unknown date"}.\n\nAre you sure?`))return;
+      worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1},...data.worker};
+      clients=data.clients||[];
+      invoiceHistory=data.invoiceHistory||[];
+      ls.set("ndis-worker",worker);
+      ls.set("ndis-clients",clients);
+      ls.set("ndis-history",invoiceHistory);
+      renderSidebar();
+      populateReportMonths();
+      if(!worker.name){populateSettings();goPage("settings");}
+      else goPage("dashboard");
+      toast("Backup restored ✓");
+    }catch(err){
+      alert("Could not read backup file: "+err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg,dur=2200){
+  const t=document.createElement("div");t.className="toast";t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),dur);
+}
+
+// ── Invoice number generation ─────────────────────────────────────────────────
+// ── Invoice number generation ─────────────────────────────────────────────────
+// Each client stores invPrefix (e.g. "MC") and invStartNum (e.g. 201)
+// The counter tracks the NEXT number to use, stored in worker.clientCounters[clientId]
+
+function getClientPrefix(clientId){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c) return "INV";
+  // Use explicitly set prefix first, then fall back to first letters of name
+  if(c.invPrefix) return c.invPrefix.toUpperCase();
+  const words=c.name.trim().split(/\s+/);
+  if(words.length>=2) return (words[0][0]+(words[1][0]||"")).toUpperCase();
+  return c.name.slice(0,2).toUpperCase();
+}
+
+function peekNextNum(clientId){
+  const id=clientId||activeId;
+  const c=clients.find(x=>x.id===id);
+  const prefix=getClientPrefix(id);
+  const startNum=c?.invStartNum||1;
+  const counters=worker.clientCounters||{};
+  // If we have a stored counter for this client, use it
+  if(counters[id]!==undefined) return prefix+counters[id];
+  // Otherwise derive from invoice history: find highest number used
+  const clientHist=invoiceHistory.filter(h=>h.clientId===id);
+  if(!clientHist.length) return prefix+startNum;
+  let maxN=startNum-1;
+  clientHist.forEach(h=>{
+    const m=h.invoiceNum.match(/(\d+)$/);
+    if(m){const n=parseInt(m[1]);if(n>maxN)maxN=n;}
+  });
+  return prefix+(maxN+1);
+}
+
+function bumpInvoiceNum(clientId, usedNumber){
+  const id=clientId||activeId;
+  worker.clientCounters={...(worker.clientCounters||{}),[id]:usedNumber+1};
+  ls.set("ndis-worker",worker);
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function populateSettings(){
+  const f=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||"";};
+  f("s-name",worker.name);f("s-abn",worker.abn);f("s-email",worker.email);
+  f("s-phone",worker.phone);f("s-bank",worker.bankName);f("s-bsb",worker.bsb);f("s-acc",worker.account);
+  f("s-title",worker.title);f("s-address",worker.address);f("s-payable",worker.payableName);
+  f("s-prefix",worker.prefix);
+}
+function saveWorker(){
+  const g=id=>document.getElementById(id)?.value?.trim()||"";
+  worker={...worker,name:g("s-name"),abn:g("s-abn"),email:g("s-email"),phone:g("s-phone"),
+    bankName:g("s-bank"),bsb:g("s-bsb"),account:g("s-acc"),title:g("s-title"),
+    address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix")};
+  if(!worker.name){alert("Please enter your name or business name.");return;}
+  ls.set("ndis-worker",worker);
+  const btn=document.getElementById("save-btn");
+  btn.textContent="✓ Saved!";
+  toast("Profile saved ✓");
+  setTimeout(()=>{btn.textContent="Save Profile";goPage("dashboard");},1000);
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const nm=worker.name?.split(" ")[0]||"there";
+  document.getElementById("dash-greet").textContent=`Hello, ${nm} 👋`;
+  const body=document.getElementById("dash-body");
+  if(!clients.length){
+    body.innerHTML=`<div class="empty"><div class="empty-icon">🧑‍🤝‍🧑</div><div class="empty-title">No clients yet</div><div class="empty-sub">Add your first NDIS participant to start creating invoices.</div><button class="btn btn-primary" onclick="newClient()">＋ Add First Client</button></div>`;
+    return;
+  }
+  body.innerHTML=`<div class="dash-grid">${clients.map(c=>{
+    const lastInv=invoiceHistory.filter(h=>h.clientId===c.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
+    return `<div class="ctile">
+      <div class="ctile-av">${esc(c.name[0].toUpperCase())}</div>
+      <div class="ctile-name">${esc(c.name)}</div>
+      <div class="ctile-ndis">NDIS ${esc(c.ndisNumber||"—")}</div>
+      <div class="ctile-pm">${esc(c.pm?.org||"No plan manager set")}${lastInv?`<br/><span style="font-size:11px;color:var(--green-d);">Last: ${esc(lastInv.invoiceNum)} · ${aud(lastInv.total)}</span>`:""}</div>
+      <div class="ctile-actions">
+        <button class="btn btn-primary btn-sm" onclick="openClient('${c.id}')">📄 New Invoice</button>
+        <button class="btn btn-soft btn-sm" onclick="repeatLast('${c.id}')">🔁 Repeat Last</button>
+        <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">✏️ Edit Client</button>
+      </div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar(){
+  document.getElementById("ci-list").innerHTML=clients.map(c=>`
+    <div class="ci-wrap${c.id===activeId?" active":""}" id="cw-${c.id}">
+      <div class="ci-row" onclick="openClient('${c.id}')">
+        <span class="ci-av">${esc(c.name?c.name[0].toUpperCase():"?")}</span>
+        <span class="ci-name">${esc(c.name||"Unnamed")}</span>
+      </div>
+      <div class="ci-acts">
+        <button title="New Invoice" onclick="openClient('${c.id}')">📄</button>
+        <button title="Repeat Last" onclick="repeatLast('${c.id}')">🔁</button>
+        <button title="Edit" onclick="editClient('${c.id}')">✏️</button>
+        <button title="Delete" onclick="delClient('${c.id}')">🗑</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ── Clients ───────────────────────────────────────────────────────────────────
+function newClient(){
+  editId=null;
+  document.getElementById("cl-eyebrow").textContent="New Client";
+  document.getElementById("cl-title").textContent="Add Participant";
+  ["cl-name","cl-ndis","cl-plan-start","cl-plan-end","cl-address","cl-pmorg","cl-pmcontact","cl-pmemail","cl-pmphone","cl-pmaddress","cl-pmsuburb","cl-pmpost","cl-inv-prefix","cl-inv-startnum"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("cl-pmstate").value="NSW";
+  goPage("client");
+}
+function editClient(id){
+  const c=clients.find(x=>x.id===id);if(!c)return;
+  editId=id;
+  document.getElementById("cl-eyebrow").textContent="Edit Client";
+  document.getElementById("cl-title").textContent=c.name;
+  document.getElementById("cl-name").value=c.name||"";
+  document.getElementById("cl-ndis").value=c.ndisNumber||"";
+  document.getElementById("cl-plan-start").value=c.planStart||"";
+  document.getElementById("cl-plan-end").value=c.planEnd||"";
+  document.getElementById("cl-address").value=c.address||"";
+  document.getElementById("cl-pmorg").value=c.pm?.org||"";
+  document.getElementById("cl-pmcontact").value=c.pm?.contact||"";
+  document.getElementById("cl-pmemail").value=c.pm?.email||"";
+  document.getElementById("cl-pmphone").value=c.pm?.phone||"";
+  document.getElementById("cl-pmaddress").value=c.pm?.address||"";
+  document.getElementById("cl-pmsuburb").value=c.pm?.suburb||"";
+  document.getElementById("cl-pmstate").value=c.pm?.state||"NSW";
+  document.getElementById("cl-pmpost").value=c.pm?.postcode||"";
+  document.getElementById("cl-inv-prefix").value=c.invPrefix||"";
+  document.getElementById("cl-inv-startnum").value=c.invStartNum||"";
+  updateInvPreview();
+  goPage("client");
+}
+function updateInvPreview(){
+  const prefix=(document.getElementById("cl-inv-prefix")?.value||"").toUpperCase();
+  const num=document.getElementById("cl-inv-startnum")?.value;
+  const el=document.getElementById("cl-inv-preview");
+  if(!el)return;
+  if(prefix&&num) el.textContent=`First invoice: ${prefix}${num} → ${prefix}${parseInt(num)+1} → ${prefix}${parseInt(num)+2} …`;
+  else if(prefix) el.textContent=`Prefix: ${prefix} — enter a starting number`;
+  else el.textContent="Enter the client's initials above";
+}
+function saveClient(){
+  const g=id=>document.getElementById(id)?.value?.trim()||"";
+  const name=g("cl-name");
+  if(!name){alert("Please enter participant name.");return;}
+  if(!g("cl-ndis")){alert("Please enter NDIS number.");return;}
+  if(!g("cl-pmorg")){alert("Please enter plan manager organisation.");return;}
+  const invPrefix=g("cl-inv-prefix").toUpperCase();
+  if(!invPrefix){alert("Please enter the client's initials for invoice numbering.");return;}
+  const invStartNum=parseInt(document.getElementById("cl-inv-startnum")?.value);
+  if(!invStartNum||invStartNum<1){alert("Please enter a valid invoice starting number (e.g. 1 or 201).");return;}
+  const existing=editId?clients.find(x=>x.id===editId):null;
+  const c={id:editId||uid(),name,ndisNumber:g("cl-ndis"),planStart:g("cl-plan-start"),planEnd:g("cl-plan-end"),address:g("cl-address"),
+    invPrefix,invStartNum,
+    serviceHistory:existing?.serviceHistory||[],
+    pm:{org:g("cl-pmorg"),contact:g("cl-pmcontact"),email:g("cl-pmemail"),phone:g("cl-pmphone"),
+        address:g("cl-pmaddress"),suburb:g("cl-pmsuburb"),state:g("cl-pmstate"),postcode:g("cl-pmpost")}};
+  clients=editId?clients.map(x=>x.id===editId?c:x):[...clients,c];
+  ls.set("ndis-clients",clients);
+  renderSidebar();
+  toast(editId?"Client updated ✓":"Client added ✓");
+  goPage("dashboard");
+}
+function delClient(id){
+  const c=clients.find(x=>x.id===id);
+  if(!confirm(`Delete ${c?.name}? This cannot be undone.`))return;
+  clients=clients.filter(x=>x.id!==id);
+  ls.set("ndis-clients",clients);
+  if(activeId===id){activeId=null;sessions=[];}
+  renderSidebar();goPage("dashboard");
+}
+function openClient(id){
+  activeId=id;
+  sessions=[];
+  resetSessionForm();
+  renderSidebar();
+  const c=clients.find(x=>x.id===id);
+  document.getElementById("svc-cl-name").textContent=c?.name||"";
+  document.getElementById("svc-cl-sub").textContent=[c?.pm?.org,c?.ndisNumber?"NDIS "+c.ndisNumber:""].filter(Boolean).join(" · ");
+  // Auto-fill invoice number using client initials + per-client counter
+  document.getElementById("f-invnum").value=peekNextNum(id);
+  // Pre-select most used support type for this client
+  if(c?.serviceHistory?.length){
+    const freq={};c.serviceHistory.forEach(s=>{freq[s]=(freq[s]||0)+1;});
+    const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0];
+    if(top&&SUPPORTS[top]){document.getElementById("f-support").value=top;onSupportChange();}
+  }
+  renderClientHistPanel(id);
+  renderSessions();
+  goPage("services");
+}
+function repeatLast(id){
+  const last=ls.get(`ndis-svc-${id}`);
+  if(!last?.length){alert("No previous invoice found for this client.");return;}
+  activeId=id;
+  sessions=last.map(s=>{
+    const d=new Date(s.date+"T12:00:00");d.setDate(d.getDate()+7);
+    const nd=d.toISOString().slice(0,10);
+    const ndt=getDayType(nd,s.dayType==="weekday_evening");
+    const ri=SUPPORTS[s.supportId]?.rates[ndt];
+    return {...s,id:uid(),date:nd,dayType:ndt,rate:ri?.rate??s.rate,itemNumber:ri?.item??s.itemNumber,amount:(ri?.rate??s.rate)*s.qty};
+  });
+  renderSidebar();
+  const c=clients.find(x=>x.id===id);
+  document.getElementById("svc-cl-name").textContent=c?.name||"";
+  document.getElementById("svc-cl-sub").textContent=[c?.pm?.org,c?.ndisNumber?"NDIS "+c.ndisNumber:""].filter(Boolean).join(" · ");
+  document.getElementById("f-invnum").value=peekNextNum(id);
+  renderSessions();
+  renderClientHistPanel(id);
+  goPage("services");
+}
+function loadLastWeek(){
+  if(!activeId)return;
+  const last=ls.get(`ndis-svc-${activeId}`);
+  if(!last?.length){alert("No previous invoice found.");return;}
+  sessions=last.map(s=>{
+    const d=new Date(s.date+"T12:00:00");d.setDate(d.getDate()+7);
+    const nd=d.toISOString().slice(0,10);
+    const ndt=getDayType(nd,s.dayType==="weekday_evening");
+    const ri=SUPPORTS[s.supportId]?.rates[ndt];
+    return {...s,id:uid(),date:nd,dayType:ndt,rate:ri?.rate??s.rate,itemNumber:ri?.item??s.itemNumber,amount:(ri?.rate??s.rate)*s.qty};
+  });
+  renderSessions();
+  toast("Sessions loaded +7 days ✓");
+}
+
+function resetSessionForm(){
+  document.getElementById("f-date").value="";
+  document.getElementById("f-support").value="";
+  document.getElementById("f-qty").value="";
+  document.getElementById("f-notes").value="";
+  document.getElementById("f-eve").checked=false;
+  document.getElementById("f-gst").checked=false;
+  document.getElementById("day-badge-wrap").innerHTML="";
+  document.getElementById("rate-wrap").innerHTML="";
+  document.getElementById("eve-wrap").classList.add("hidden");
+  document.getElementById("f-support-cat").textContent="";
+  document.getElementById("f-total-hint").textContent="";
+  document.getElementById("add-btn").disabled=true;
+  document.getElementById("qty-lbl").textContent="Hours *";
+}
+
+// ── Session form ──────────────────────────────────────────────────────────────
+function curDT(){return getDayType(document.getElementById("f-date").value,document.getElementById("f-eve").checked);}
+function curRate(){const sid=document.getElementById("f-support").value,dt=curDT();if(!sid||!dt)return null;return SUPPORTS[sid]?.rates[dt]||null;}
+
+function onDateChange(){updateRateBox();checkAdd();}
+function onSupportChange(){
+  const sup=SUPPORTS[document.getElementById("f-support").value];
+  document.getElementById("f-support-cat").textContent=sup?sup.cat:"";
+  document.getElementById("qty-lbl").textContent=sup?.unit==="km"?"Kilometres *":"Hours *";
+  document.getElementById("f-qty").step=sup?.unit==="km"?"1":"0.25";
+  updateRateBox();checkAdd();
+}
+function onEveChange(){updateRateBox();checkAdd();}
+function onQtyChange(){
+  const ri=curRate(),qty=parseFloat(document.getElementById("f-qty").value)||0;
+  if(qty<0){document.getElementById("f-qty").value=0;return;}
+  document.getElementById("f-total-hint").textContent=ri&&qty?`= ${aud(qty*ri.rate)}`:"";
+  checkAdd();
+}
+
+function updateRateBox(){
+  const dt=curDT();
+  const bw=document.getElementById("day-badge-wrap");
+  const rw=document.getElementById("rate-wrap");
+  const ew=document.getElementById("eve-wrap");
+  if(dt){const m=DAY_META[dt];bw.innerHTML=`<span class="day-pill" style="background:${m.bg};color:${m.color}"><span class="day-dot" style="background:${m.color}"></span>${m.label}</span>`;}
+  else bw.innerHTML="";
+  const sid=document.getElementById("f-support").value;
+  const sup=SUPPORTS[sid];
+  if(sup?.hasEvening&&dt&&!["saturday","sunday","public_holiday"].includes(dt)){ew.classList.remove("hidden");}
+  else{ew.classList.add("hidden");document.getElementById("f-eve").checked=false;}
+  const ri=curRate();
+  if(ri){const u=sup?.unit||"hr";rw.innerHTML=`<div class="rate-box"><div><div class="rate-lbl">2025–26 NDIS Rate</div><div class="rate-item">Item ${esc(ri.item)}</div></div><div><span class="rate-num">${aud(ri.rate)}</span><span class="rate-unit">/${u}</span></div></div>`;}
+  else rw.innerHTML="";
+  onQtyChange();
+}
+function checkAdd(){
+  const ok=document.getElementById("f-date").value&&document.getElementById("f-support").value&&(parseFloat(document.getElementById("f-qty").value)||0)>0&&curRate();
+  document.getElementById("add-btn").disabled=!ok;
+}
+function addSession(){
+  const date=document.getElementById("f-date").value;
+  const sid=document.getElementById("f-support").value;
+  const qty=parseFloat(document.getElementById("f-qty").value)||0;
+  if(qty<=0){alert("Please enter a quantity greater than 0.");return;}
+  if(qty>24&&SUPPORTS[sid]?.unit!=="km"){alert("Hours seems too high — please check.");return;}
+  const notes=document.getElementById("f-notes").value.trim();
+  const eve=document.getElementById("f-eve").checked;
+  const dt=getDayType(date,eve);
+  const sup=SUPPORTS[sid];
+  const ri=sup?.rates[dt];if(!ri)return;
+  sessions.push({id:uid(),date,dayType:dt,supportId:sid,description:sup.short,category:sup.cat,itemNumber:ri.item,unit:sup.unit||"hr",qty,rate:ri.rate,amount:qty*ri.rate,notes});
+  // Track service history per client
+  const c=clients.find(x=>x.id===activeId);
+  if(c){c.serviceHistory=c.serviceHistory||[];c.serviceHistory.push(sid);if(c.serviceHistory.length>50)c.serviceHistory=c.serviceHistory.slice(-50);ls.set("ndis-clients",clients);}
+  // Clear date/qty/notes but keep support type for quick multi-entry
+  document.getElementById("f-date").value="";
+  document.getElementById("f-qty").value="";
+  document.getElementById("f-notes").value="";
+  document.getElementById("f-eve").checked=false;
+  document.getElementById("day-badge-wrap").innerHTML="";
+  document.getElementById("rate-wrap").innerHTML="";
+  document.getElementById("eve-wrap").classList.add("hidden");
+  document.getElementById("f-total-hint").textContent="";
+  document.getElementById("add-btn").disabled=true;
+  renderSessions();
+  toast("Session added ✓");
+  document.getElementById("f-date").focus();
+}
+function updSessQty(id,v){
+  const q=parseFloat(v)||0;
+  if(q<0){toast("⚠ Quantity cannot be negative");return;}
+  sessions=sessions.map(s=>{if(s.id!==id)return s;return{...s,qty:q,amount:q*s.rate};});
+  renderSessions();
+}
+function updSessDate(id,v){
+  sessions=sessions.map(s=>{
+    if(s.id!==id)return s;
+    const ndt=getDayType(v,s.dayType==="weekday_evening");
+    const ri=SUPPORTS[s.supportId]?.rates[ndt];
+    return{...s,date:v,dayType:ndt,rate:ri?.rate??s.rate,itemNumber:ri?.item??s.itemNumber,amount:(ri?.rate??s.rate)*s.qty};
+  });
+  renderSessions();
+}
+function dupSess(id){
+  const s=sessions.find(x=>x.id===id);if(!s)return;
+  sessions.push({...s,id:uid()});
+  renderSessions();toast("Session duplicated ✓");
+}
+function delSess(id){sessions=sessions.filter(s=>s.id!==id);renderSessions();}
+
+function renderSessions(){
+  const card=document.getElementById("sessions-card");
+  const gen=document.getElementById("gen-btn");
+  const useGst=document.getElementById("f-gst")?.checked;
+  if(!sessions.length){card.classList.add("hidden");gen.disabled=true;return;}
+  card.classList.remove("hidden");gen.disabled=false;
+  const sorted=[...sessions].sort((a,b)=>a.date.localeCompare(b.date));
+  const subtotal=sessions.reduce((s,x)=>s+x.amount,0);
+  const gstAmt=useGst?subtotal*0.1:0;
+  const total=subtotal+gstAmt;
+  const totalHrs=sessions.filter(s=>s.unit==="hr").reduce((s,x)=>s+x.qty,0);
+  const totalKm=sessions.filter(s=>s.unit==="km").reduce((s,x)=>s+x.qty,0);
+  document.getElementById("sess-count").textContent=`${sessions.length} session${sessions.length!==1?"s":""}${totalHrs>0?" · "+totalHrs+" hrs":""}${totalKm>0?" · "+totalKm+" km":""}`;
+  document.getElementById("sess-list").innerHTML=sorted.map(s=>{
+    const m=DAY_META[s.dayType];
+    return `<div class="svc-row">
+      <div class="svc-date-col">
+        <input type="date" class="date-inline" value="${s.date}" onchange="updSessDate('${s.id}',this.value)"/>
+        <span class="day-pill" style="background:${m.bg};color:${m.color}"><span class="day-dot" style="background:${m.color}"></span>${m.label}</span>
+      </div>
+      <div>
+        <div class="svc-desc">${esc(s.description)}</div>
+        <div class="svc-meta">Item ${esc(s.itemNumber)} · ${aud(s.rate)}/${s.unit}</div>
+        ${s.notes?`<div class="svc-notes">${esc(s.notes)}</div>`:""}
+      </div>
+      <div class="svc-qty">
+        <input type="number" class="qty-inline" value="${s.qty}" min="0" step="${s.unit==="km"?"1":"0.25"}" onchange="updSessQty('${s.id}',this.value)"/>
+        <span style="font-size:10px;color:var(--faint);">${s.unit}</span>
+      </div>
+      <div class="svc-amt">${aud(s.amount)}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <button class="svc-del" onclick="dupSess('${s.id}')" title="Duplicate" style="font-size:14px;color:var(--green);">⧉</button>
+        <button class="svc-del" onclick="delSess('${s.id}')" title="Delete">×</button>
+      </div>
+    </div>`;
+  }).join("");
+  // Totals
+  let totHtml=`<div class="total-bar" style="border-radius:10px 10px ${useGst?"0 0":"10px 10px"};margin-top:10px;">
+    <span class="total-bar-lbl">${useGst?"Subtotal":"Invoice Total"}</span>
+    <span class="total-bar-amt">${aud(subtotal)}</span>
+  </div>`;
+  if(useGst){
+    totHtml+=`<div class="gst-section" style="border-radius:0 0 10px 10px;border-top:none;margin-top:0;">
+      <div class="gst-line"><span>GST (10%)</span><span>${aud(gstAmt)}</span></div>
+      <div class="gst-line total"><span>Total incl. GST</span><span>${aud(total)}</span></div>
+    </div>`;
+  }
+  document.getElementById("sess-total").innerHTML=totHtml;
+}
+
+function renderClientHistPanel(clientId){
+  const id=clientId||activeId;
+  const panel=document.getElementById("cl-hist-list");
+  if(!panel)return;
+  const list=invoiceHistory.filter(h=>h.clientId===id).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!list.length){panel.innerHTML='<div class="cl-hist-empty">No invoices yet</div>';return;}
+  panel.innerHTML=list.map(h=>`
+    <div class="cl-hist-item" onclick="viewHistInvoice('${h.id}')" title="View ${esc(h.invoiceNum)}">
+      <div class="cl-hist-num">${esc(h.invoiceNum)}</div>
+      <div class="cl-hist-date">${fmtD(h.date)}</div>
+      <div class="cl-hist-amt">${aud(h.total)}</div>
+    </div>
+  `).join("");
+}
+
+// ── Invoice ───────────────────────────────────────────────────────────────────
+function goInvoice(){
+  if(!sessions.length)return;
+  ls.set(`ndis-svc-${activeId}`,sessions);
+  const useGst=document.getElementById("f-gst")?.checked;
+  const subtotal=sessions.reduce((s,x)=>s+x.amount,0);
+  const gstAmt=useGst?subtotal*0.1:0;
+  const total=subtotal+gstAmt;
+  const userInvNum=document.getElementById("f-invnum")?.value?.trim()||peekNextNum(activeId);
+  const cl=clients.find(x=>x.id===activeId)||{};
+  const invNotes=document.getElementById("f-invnotes")?.value?.trim()||"";
+  // Save to history
+  const histEntry={
+    id:uid(),clientId:activeId,clientName:cl.name||"",
+    invoiceNum:userInvNum,date:new Date().toISOString().slice(0,10),
+    subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes
+  };
+  invoiceHistory=[histEntry,...invoiceHistory];
+  ls.set("ndis-history",invoiceHistory);
+  // Bump invoice counter for this client to one past the number just used
+  const usedMatch=userInvNum.match(/(\d+)$/);
+  if(usedMatch){
+    bumpInvoiceNum(activeId, parseInt(usedMatch[1]));
+  }
+  buildInvoice(histEntry);
+  document.getElementById("inv-num-head").textContent=userInvNum;
+  goPage("invoice");
+  // Prompt backup after every 5th invoice
+  if(invoiceHistory.length>0&&invoiceHistory.length%5===0){
+    setTimeout(()=>{
+      if(confirm(`You've generated ${invoiceHistory.length} invoices 🎉\n\nWould you like to save a backup now? This only takes a second and protects your data.`)){
+        exportData();
+      }
+    },800);
+  }
+}
+
+function buildInvoice(entry){
+  const cl=clients.find(x=>x.id===entry.clientId)||{};
+  const sorted=[...entry.sessions].sort((a,b)=>a.date.localeCompare(b.date));
+  const totalHours=entry.sessions.filter(s=>s.unit==="hr").reduce((s,x)=>s+x.qty,0);
+
+  function lineDesc(s){
+    const dtLabels={weekday:"Weekday - Daytime",weekday_evening:"Weekday - Evening",saturday:"Saturday",sunday:"Sunday",public_holiday:"Public Holiday"};
+    const typeLabels={
+      personal_care:"Standard - Self-Care",community:"Standard",household:"Household Tasks",
+      support_coord:"Support Coordination",life_skills:"Life Skills and Training",transport:"Provider travel - non-labour costs-NSW",
+    };
+    if(s.supportId==="transport") return typeLabels.transport;
+    return (typeLabels[s.supportId]||s.description)+" - "+(dtLabels[s.dayType]||"");
+  }
+
+  const gstRows=entry.useGst?`
+    <tr class="inv-gst-row"><td colspan="4" class="r">GST (10%)</td><td class="amt">${aud(entry.gst)}</td></tr>
+    <tr class="inv-grand-row"><td colspan="4" class="r" style="font-weight:700;">Total incl. GST</td><td class="amt">${aud(entry.total)}</td></tr>
+  `:"";
+
+  document.getElementById("inv-render").innerHTML=`
+    <div class="inv-wrap">
+      <div class="inv-hdr">
+        ${worker.title?`<div class="inv-worker-title">${esc(worker.title)}</div>`:""}
+        <div class="inv-worker-name">${esc(worker.name)}</div>
+        <div class="inv-worker-det">
+          ${worker.address?esc(worker.address)+"<br/>":""}
+          ${worker.phone?"Phone: "+esc(worker.phone)+"<br/>":""}
+          ${worker.abn?"ABN: "+esc(worker.abn):""}
+        </div>
+        <div class="inv-num-row">
+          <div class="inv-inv-num">${esc(entry.invoiceNum)}</div>
+          <div class="inv-submitted">${fmtShort(entry.date)}</div>
+        </div>
+      </div>
+      <div class="inv-parties">
+        <div class="inv-party">
+          <div class="inv-plbl">TO:</div>
+          <div class="inv-pdet">
+            <strong>${esc(cl.name||"")}</strong><br/>
+            ${cl.ndisNumber?"NDIS: "+esc(cl.ndisNumber)+"<br/>":""}
+            ${cl.planStart?"Plan dates: "+fmtShort(cl.planStart)+(cl.planEnd?" - "+fmtShort(cl.planEnd):"")+"<br/>":""}
+            ${cl.address?"Address: "+esc(cl.address):""}
+          </div>
+        </div>
+        <div class="inv-party">
+          <div class="inv-plbl">FOR:</div>
+          <div class="inv-pdet">
+            NDIS<br/>
+            <strong>${esc(cl.pm?.org||"")}</strong><br/>
+            ${cl.pm?.address?esc(cl.pm.address)+"<br/>":""}
+            ${[cl.pm?.suburb,cl.pm?.state,cl.pm?.postcode].filter(Boolean).map(esc).join(" ")}
+          </div>
+        </div>
+      </div>
+      <div class="inv-body">
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th>Item Number</th>
+              <th class="r" style="width:82px;">Date</th>
+              <th class="r" style="width:52px;">Units</th>
+              <th class="r" style="width:72px;">Unit price</th>
+              <th class="r" style="width:78px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(s=>`<tr>
+              <td class="inv-desc-cell">
+                <div class="inv-desc-main">${esc(lineDesc(s))}${s.notes?" — "+esc(s.notes):""}</div>
+                <div class="inv-desc-item">${esc(s.itemNumber)}</div>
+              </td>
+              <td class="r">${fmtShort(s.date)}</td>
+              <td class="r">${s.qty}</td>
+              <td class="r">${aud(s.rate)}</td>
+              <td class="amt">${aud(s.amount)}</td>
+            </tr>`).join("")}
+            ${entry.notes?`<tr><td colspan="5" style="font-style:italic;color:#555;font-size:11px;padding:6px;">Notes: ${esc(entry.notes)}</td></tr>`:""}
+            <tr class="inv-totals-row">
+              <td class="inv-th-hours">Total hours</td>
+              <td class="inv-hours-val">${totalHours>0?totalHours:""}</td>
+              <td></td>
+              <td style="text-align:right;font-size:12px;font-weight:600;padding:7px 6px;">Subtotal</td>
+              <td class="amt">${aud(entry.subtotal)}</td>
+            </tr>
+            ${gstRows}
+          </tbody>
+        </table>
+      </div>
+      <div class="inv-footer">
+        Make all checks payable to <strong>${esc(worker.payableName||worker.name)}</strong><br/>
+        ${worker.bsb?"BSB: "+esc(worker.bsb)+"<br/>":""}
+        ${worker.account?"ACC#: "+esc(worker.account):""}
+      </div>
+      <div class="inv-disc-bar">NDIS support worker services are generally GST-free · Rates: NDIS PAPL 2025–26 v1.1 · Verify at ndis.gov.au</div>
+    </div>
+  `;
+}
+
+// ── Invoice History ───────────────────────────────────────────────────────────
+function populateHistoryFilter(){
+  const sel=document.getElementById("hist-filter-client");
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All clients</option>'+
+    clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  sel.value=cur;
+}
+
+function renderHistory(){
+  const filterClient=document.getElementById("hist-filter-client")?.value||"";
+  const body=document.getElementById("hist-body");
+  let list=invoiceHistory.filter(h=>!filterClient||h.clientId===filterClient);
+  if(!list.length){
+    body.innerHTML=`<div class="hist-empty">No invoices found. Generate your first invoice to see it here.</div>`;
+    return;
+  }
+  body.innerHTML=`<div class="hist-list">${list.map(h=>`
+    <div class="hist-row">
+      <div>
+        <div class="hist-num">${esc(h.invoiceNum)}</div>
+        <div class="hist-date">${fmtD(h.date)}</div>
+      </div>
+      <div>
+        <div class="hist-client">${esc(h.clientName)}</div>
+        <div class="hist-date">${h.sessions.length} session${h.sessions.length!==1?"s":""} · ${h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0)} hrs</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="hist-amt">${aud(h.total)}</div>
+        ${h.useGst?`<span class="hist-badge gst">+GST</span>`:""}
+      </div>
+      <div class="hist-actions">
+        <button class="btn btn-primary btn-sm" onclick="viewHistInvoice('${h.id}')">View</button>
+        <button class="btn btn-soft btn-sm" onclick="reloadFromHistory('${h.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteHistEntry('${h.id}')">🗑</button>
+      </div>
+    </div>
+  `).join("")}</div>`;
+}
+
+function viewHistInvoice(id){
+  const h=invoiceHistory.find(x=>x.id===id);if(!h)return;
+  buildInvoice(h);
+  document.getElementById("inv-num-head").textContent=h.invoiceNum;
+  goPage("invoice");
+}
+
+function reloadFromHistory(id){
+  const h=invoiceHistory.find(x=>x.id===id);if(!h)return;
+  activeId=h.clientId;
+  sessions=[...h.sessions.map(s=>({...s,id:uid()}))];
+  const c=clients.find(x=>x.id===activeId)||{};
+  document.getElementById("svc-cl-name").textContent=c.name||h.clientName||"";
+  document.getElementById("svc-cl-sub").textContent=[c.pm?.org,c.ndisNumber?"NDIS "+c.ndisNumber:""].filter(Boolean).join(" · ");
+  // Set invoice number to the NEXT consecutive after the one being duplicated
+  const match=h.invoiceNum.match(/^([A-Za-z]*)(\d+)$/);
+  const nextNum=match?(match[1]+(parseInt(match[2])+1)):peekNextNum(h.clientId);
+  document.getElementById("f-invnum").value=nextNum;
+  document.getElementById("f-invnotes").value=h.notes||"";
+  document.getElementById("f-gst").checked=h.useGst||false;
+  renderClientHistPanel(h.clientId);
+  renderSessions();
+  goPage("services");
+  renderSidebar();
+}
+
+function deleteHistEntry(id){
+  if(!confirm("Delete this invoice record?"))return;
+  invoiceHistory=invoiceHistory.filter(x=>x.id!==id);
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast("Invoice deleted");
+}
+
+function clearAllHistory(){
+  const filterClient=document.getElementById("hist-filter-client")?.value||"";
+  const label=filterClient?clients.find(x=>x.id===filterClient)?.name||"this client":"ALL clients";
+  if(!confirm(`Clear all invoice history for ${label}? This cannot be undone.`))return;
+  if(filterClient) invoiceHistory=invoiceHistory.filter(h=>h.clientId!==filterClient);
+  else invoiceHistory=[];
+  ls.set("ndis-history",invoiceHistory);
+  renderHistory();
+  toast("History cleared");
+}
+
+// ── Monthly Report ────────────────────────────────────────────────────────────
+function populateReportMonths(){
+  const sel=document.getElementById("rpt-month");
+  const months=new Set();
+  invoiceHistory.forEach(h=>{if(h.date)months.add(h.date.slice(0,7));});
+  // Always include current and last 12 months
+  for(let i=0;i<13;i++){
+    const d=new Date();d.setMonth(d.getMonth()-i);
+    months.add(d.toISOString().slice(0,7));
+  }
+  const sorted=[...months].sort((a,b)=>b.localeCompare(a));
+  const cur=sel.value||new Date().toISOString().slice(0,7);
+  sel.innerHTML=sorted.map(m=>`<option value="${m}">${fmtMonthYear(m+"-01")}</option>`).join("");
+  sel.value=cur;
+}
+
+function populateReportClients(){
+  const sel=document.getElementById("rpt-client");
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All clients</option>'+
+    clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  sel.value=cur;
+}
+
+function renderReport(){
+  const month=document.getElementById("rpt-month")?.value||new Date().toISOString().slice(0,7);
+  const filterClient=document.getElementById("rpt-client")?.value||"";
+  const body=document.getElementById("rpt-body");
+
+  let list=invoiceHistory.filter(h=>h.date&&h.date.startsWith(month));
+  if(filterClient) list=list.filter(h=>h.clientId===filterClient);
+
+  if(!list.length){
+    body.innerHTML=`<div class="empty" style="padding:32px;"><div class="empty-icon">📊</div><div class="empty-title">No invoices this month</div><div class="empty-sub">Generate some invoices and they'll appear here.</div></div>`;
+    return;
+  }
+
+  const totalIncome=list.reduce((s,h)=>s+h.total,0);
+  const totalSubtotal=list.reduce((s,h)=>s+h.subtotal,0);
+  const totalGst=list.reduce((s,h)=>s+(h.gst||0),0);
+  const totalSessions=list.reduce((s,h)=>s+h.sessions.length,0);
+  const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
+  const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
+
+  // Per-client breakdown
+  const byClient={};
+  list.forEach(h=>{
+    if(!byClient[h.clientId]){byClient[h.clientId]={name:h.clientName,invoices:0,total:0,hours:0};}
+    byClient[h.clientId].invoices++;
+    byClient[h.clientId].total+=h.total;
+    byClient[h.clientId].hours+=h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);
+  });
+
+  // Per-support-type breakdown
+  const byType={};
+  list.forEach(h=>{h.sessions.forEach(s=>{
+    const lbl=SUPPORTS[s.supportId]?.label||s.description||s.supportId;
+    if(!byType[lbl]){byType[lbl]={qty:0,amount:0,unit:s.unit||"hr"};}
+    byType[lbl].qty+=s.qty;byType[lbl].amount+=s.amount;
+  });});
+
+  const maxClientTotal=Math.max(...Object.values(byClient).map(x=>x.total),1);
+
+  body.innerHTML=`
+    <div class="report-grid">
+      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Total Income</div></div>
+      ${totalGst>0?`<div class="stat-card"><div class="stat-icon">📑</div><div class="stat-val">${aud(totalGst)}</div><div class="stat-lbl">GST Collected</div></div>`:""}
+      <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val">${totalHours}</div><div class="stat-lbl">Hours Worked</div></div>
+      ${totalKm>0?`<div class="stat-card"><div class="stat-icon">🚗</div><div class="stat-val">${totalKm} km</div><div class="stat-lbl">Travel</div></div>`:""}
+      <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-val">${totalSessions}</div><div class="stat-lbl">Sessions</div></div>
+      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${list.length}</div><div class="stat-lbl">Invoices</div></div>
+      ${totalHours>0?`<div class="stat-card"><div class="stat-icon">📈</div><div class="stat-val">${aud(totalSubtotal/totalHours)}</div><div class="stat-lbl">Avg Rate/Hr</div></div>`:""}
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><span class="card-hd-icon">🧑‍🤝‍🧑</span> By Client</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Client</th><th>Invoices</th><th>Hours</th><th class="r">Income</th></tr></thead>
+        <tbody>
+          ${Object.values(byClient).sort((a,b)=>b.total-a.total).map(c=>`
+            <tr>
+              <td><div>${esc(c.name)}</div><div class="client-bar" style="width:${Math.round(c.total/maxClientTotal*100)}%"></div></td>
+              <td>${c.invoices}</td>
+              <td class="r">${c.hours} hr</td>
+              <td class="r">${aud(c.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><span class="card-hd-icon">🏷</span> By Support Type</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Support</th><th class="r">Units</th><th class="r">Amount</th></tr></thead>
+        <tbody>
+          ${Object.entries(byType).sort((a,b)=>b[1].amount-a[1].amount).map(([lbl,v])=>`
+            <tr>
+              <td>${esc(lbl)}</td>
+              <td class="r">${v.qty} ${v.unit}</td>
+              <td class="r">${aud(v.amount)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><span class="card-hd-icon">📄</span> Invoice List</div>
+      <table class="breakdown-table">
+        <thead><tr><th>Invoice</th><th>Client</th><th class="r">Date</th><th class="r">Total</th></tr></thead>
+        <tbody>
+          ${list.map(h=>`
+            <tr style="cursor:pointer;" onclick="viewHistInvoice('${h.id}')">
+              <td><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--green-d);">${esc(h.invoiceNum)}</span></td>
+              <td>${esc(h.clientName)}</td>
+              <td class="r">${fmtShort(h.date)}</td>
+              <td class="r" style="font-weight:600;">${aud(h.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
