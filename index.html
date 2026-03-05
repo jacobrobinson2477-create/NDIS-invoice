@@ -840,6 +840,30 @@ function exportData(){
   toast("Backup saved ✓");
 }
 
+function autoBackup(invoiceNum){
+  // Silently save a backup every time an invoice is generated
+  try{
+    const data={
+      exportedAt:new Date().toISOString(),
+      version:1,
+      worker,
+      clients,
+      invoiceHistory
+    };
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    const date=new Date().toISOString().slice(0,10);
+    a.href=url;
+    a.download=`ndis-backup-${date}-${(invoiceNum||"inv").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("📁 Backup saved automatically");
+  }catch(e){
+    console.warn("Auto-backup failed:",e);
+  }
+}
+
 function importData(){
   document.getElementById("import-file-input").value="";
   document.getElementById("import-file-input").click();
@@ -1309,14 +1333,8 @@ function goInvoice(){
   buildInvoice(histEntry);
   document.getElementById("inv-num-head").textContent=userInvNum;
   goPage("invoice");
-  // Prompt backup after every 5th invoice
-  if(invoiceHistory.length>0&&invoiceHistory.length%5===0){
-    setTimeout(()=>{
-      if(confirm(`You've generated ${invoiceHistory.length} invoices 🎉\n\nWould you like to save a backup now? This only takes a second and protects your data.`)){
-        exportData();
-      }
-    },800);
-  }
+  // Auto-backup silently on every invoice
+  setTimeout(()=>autoBackup(userInvNum),600);
 }
 
 function buildInvoice(entry){
