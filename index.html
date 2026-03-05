@@ -45,10 +45,17 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .nav-logo{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px;cursor:pointer;}
 .nav-logo span{color:var(--mint);}
 .nav-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;background:rgba(255,255,255,.1);color:#6ee7b7;border-radius:4px;padding:2px 7px;letter-spacing:1px;text-transform:uppercase;}
-.nav-right{display:flex;gap:8px;align-items:center;}
+.nav-right{display:flex;gap:6px;align-items:center;}
 .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#a7f3d0;border-radius:7px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
 .nav-btn:hover{background:rgba(255,255,255,.18);}
 .nav-btn.active-tab{background:rgba(5,150,105,.35);border-color:var(--mint);}
+.nav-more-wrap{position:relative;}
+.nav-more-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#a7f3d0;border-radius:7px;width:34px;height:34px;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.nav-more-btn:hover{background:rgba(255,255,255,.18);}
+.nav-dropdown{position:absolute;top:42px;right:0;background:var(--green-xd);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:170px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.nav-dropdown.hidden{display:none!important;}
+.nav-dropdown .nav-btn{width:100%;text-align:left;}
+@media(max-width:680px){.nav{padding:0 12px;}.nav-hide-mobile{display:none!important;}}
 
 /* ── LAYOUT ── */
 .shell{display:flex;min-height:calc(100vh - 52px);}
@@ -406,12 +413,20 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
     <span class="nav-badge">2025–26</span>
   </div>
   <div class="nav-right">
-    <button class="nav-btn" id="nav-history" onclick="goPage('history')">📋 History</button>
-    <button class="nav-btn" id="nav-report" onclick="goPage('report')">📊 Report</button>
-    <button class="nav-btn" onclick="exportData()" title="Export all data as a backup file">💾 Backup</button>
-    <button class="nav-btn" onclick="importData()" title="Restore from a backup file">📂 Restore</button>
-    <button class="nav-btn" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
-    <button class="nav-btn hidden" id="install-btn" onclick="installApp()" title="Install as app on this device">📲 Install App</button>
+    <button class="nav-btn nav-hide-mobile" id="nav-history" onclick="goPage('history')">📋 History</button>
+    <button class="nav-btn nav-hide-mobile" id="nav-report" onclick="goPage('report')">📊 Report</button>
+    <button class="nav-btn nav-hide-mobile" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
+    <button class="nav-btn hidden" id="install-btn" onclick="installApp()">📲 Install</button>
+    <div class="nav-more-wrap">
+      <button class="nav-more-btn" onclick="toggleNavMenu()" title="More options">⋮</button>
+      <div class="nav-dropdown hidden" id="nav-dropdown">
+        <button class="nav-btn" id="nav-history-m" onclick="goPage('history');closeNavMenu()">📋 History</button>
+        <button class="nav-btn" id="nav-report-m" onclick="goPage('report');closeNavMenu()">📊 Report</button>
+        <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
+        <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
+        <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
+      </div>
+    </div>
     <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)"/>
   </div>
 </nav>
@@ -740,6 +755,19 @@ let invoiceHistory=[]; // [{id, clientId, clientName, invoiceNum, date, total, g
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.addEventListener("error",e=>{console.error("App error:",e.message,e.filename,e.lineno);});
+// ── Nav Menu ──────────────────────────────────────────────────────────────────
+function toggleNavMenu(){
+  const dd=document.getElementById("nav-dropdown");
+  dd.classList.toggle("hidden");
+}
+function closeNavMenu(){
+  document.getElementById("nav-dropdown").classList.add("hidden");
+}
+document.addEventListener("click",e=>{
+  const wrap=document.querySelector(".nav-more-wrap");
+  if(wrap&&!wrap.contains(e.target)) closeNavMenu();
+});
+
 // ── PWA Install Prompt ────────────────────────────────────────────────────────
 let _installPrompt=null;
 window.addEventListener("beforeinstallprompt",e=>{
@@ -805,8 +833,8 @@ function goPage(name){
     if(fab) fab.classList.toggle("hidden",name!=="services");
     // Nav button highlight
     document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active-tab"));
-    const navMap={history:"nav-history",report:"nav-report",settings:"nav-settings"};
-    if(navMap[name]){const el=document.getElementById(navMap[name]);if(el)el.classList.add("active-tab");}
+    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"]};
+    if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
     if(name==="history"){populateHistoryFilter();renderHistory();}
