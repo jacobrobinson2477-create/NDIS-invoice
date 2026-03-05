@@ -459,7 +459,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
         <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
         <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
-        <button class="nav-btn" id="drive-connect-btn" onclick="connectAndBackupDrive();closeNavMenu()">☁️ Connect Drive</button>
+        <button class="nav-btn" id="drive-connect-btn" onclick="toggleDriveConnection();closeNavMenu()">☁️ Connect Drive</button>
       </div>
     </div>
     <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)"/>
@@ -885,10 +885,10 @@ window.addEventListener("load",()=>{
     if(!worker.name){populateSettings();goPage("settings");}
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
-    // Restore Drive button state if previously connected
+    // Restore Drive button state if previously connected (token will need refresh)
     if(ls.get("ndis-drive-connected")){
       const btn=document.getElementById("drive-connect-btn");
-      if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+      if(btn){btn.textContent="☁️ Reconnect Drive";btn.style.background="";}
     }
   }catch(err){
     console.error("Boot error:",err);
@@ -1076,18 +1076,42 @@ async function saveToDrive(invoiceNum){
   return result;
 }
 
+async function toggleDriveConnection(){
+  const isConnected=ls.get("ndis-drive-connected")&&driveToken&&Date.now()<driveTokenExpiry;
+  if(isConnected){
+    // Disconnect
+    if(confirm("Disconnect Google Drive?\n\nBackups will still save to your Downloads folder.")){
+      driveToken=null;
+      driveTokenExpiry=0;
+      driveFolderId=null;
+      ls.set("ndis-drive-connected",false);
+      const btn=document.getElementById("drive-connect-btn");
+      if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
+      toast("Google Drive disconnected");
+    }
+  } else {
+    await connectAndBackupDrive();
+  }
+}
+
 async function connectAndBackupDrive(){
   try{
     toast("Connecting to Google Drive...");
+    // Reset any stale state
+    driveToken=null;
+    driveTokenExpiry=0;
+    driveFolderId=null;
     await connectDrive();
-    await saveToDrive("manual");
+    await saveToDrive("connection-test");
     toast("✅ Connected! Backups will now save to Google Drive automatically");
-    // Update button
     const btn=document.getElementById("drive-connect-btn");
     if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
   }catch(e){
     toast("Could not connect to Google Drive");
     console.warn("Drive connect error:",e);
+    ls.set("ndis-drive-connected",false);
+    const btn=document.getElementById("drive-connect-btn");
+    if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
   }
 }
 
