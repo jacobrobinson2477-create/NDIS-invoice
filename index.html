@@ -327,6 +327,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
   .cl-hist-item{flex-shrink:0;min-width:120px;}
   .cl-hist-hd{display:none;}
 }
+@page{margin:10mm;size:A4;}
 @media print{
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   html,body{background:#fff!important;height:auto!important;min-height:0!important;overflow:visible!important;}
@@ -1045,32 +1046,39 @@ async function saveToDrive(invoiceNum){
   const token=await ensureToken();
   const folderId=await ensureDriveFolder();
   const data=buildBackupData();
-  const date=new Date().toISOString().slice(0,10);
+  // Use local date not UTC to avoid timezone issues
+  const now=new Date();
+  const date=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
   const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
   const content=JSON.stringify(data,null,2);
-  // Multipart upload
-  const boundary="ndis_backup_boundary";
-  const body=[
-    `--${boundary}`,
-    "Content-Type: application/json",
-    "",
-    JSON.stringify({name:filename,parents:[folderId]}),
-    `--${boundary}`,
-    "Content-Type: application/json",
-    "",
-    content,
-    `--${boundary}--`
-  ].join("\r\n");
-  const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{
+  const metadata=JSON.stringify({name:filename,parents:[folderId],mimeType:"application/json"});
+  // Proper multipart MIME format
+  const boundary="ndis_boundary_"+Date.now();
+  const delim="\r\n--"+boundary+"\r\n";
+  const closeDelim="\r\n--"+boundary+"--";
+  const body=
+    "--"+boundary+"\r\n"+
+    "Content-Type: application/json; charset=UTF-8\r\n\r\n"+
+    metadata+
+    delim+
+    "Content-Type: application/json\r\n\r\n"+
+    content+
+    closeDelim;
+  const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",{
     method:"POST",
     headers:{
       Authorization:"Bearer "+token,
-      "Content-Type":`multipart/related; boundary=${boundary}`
+      "Content-Type":"multipart/related; boundary="+boundary
     },
     body
   });
-  if(!resp.ok) throw new Error("Drive upload failed: "+resp.status);
-  return await resp.json();
+  const result=await resp.json();
+  if(!resp.ok){
+    console.error("Drive upload failed:",result);
+    throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
+  }
+  console.log("Drive backup saved:",result.name);
+  return result;
 }
 
 async function connectAndBackupDrive(){
@@ -1590,7 +1598,7 @@ function goInvoice(){
   // Save to history
   const histEntry={
     id:uid(),clientId:activeId,clientName:cl.name||"",
-    invoiceNum:userInvNum,date:new Date().toISOString().slice(0,10),
+    invoiceNum:userInvNum,date:(()=>{const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;})(),
     subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes
   };
   invoiceHistory=[histEntry,...invoiceHistory];
