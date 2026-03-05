@@ -680,7 +680,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
           <div class="ph-title" id="inv-num-head">Invoice</div>
         </div>
         <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+          <button class="btn btn-primary" onclick="printInvoice()">🖨 Print / PDF</button>
           <button class="btn btn-soft" onclick="emailInvoice()">📧 Email Invoice</button>
           <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
           <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
@@ -899,7 +899,7 @@ window.addEventListener("load",()=>{
 
 // Keyboard shortcuts
 document.addEventListener("keydown",e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key==="p"){e.preventDefault();if(document.getElementById("page-invoice").classList.contains("active"))window.print();}
+  if((e.ctrlKey||e.metaKey)&&e.key==="p"){e.preventDefault();if(document.getElementById("page-invoice").classList.contains("active"))printInvoice();}
   if((e.ctrlKey||e.metaKey)&&e.key==="s"){e.preventDefault();const pg=document.querySelector(".page.active")?.id;if(pg==="page-settings")saveWorker();else if(pg==="page-client")saveClient();}
   if(e.key==="Enter"&&document.getElementById("page-services").classList.contains("active")){
     const ab=document.getElementById("add-btn");if(ab&&!ab.disabled){e.preventDefault();addSession();}
@@ -960,7 +960,22 @@ function exportData(){
 }
 
 function autoBackup(invoiceNum){
-  // Download locally first
+  if(driveToken&&Date.now()<driveTokenExpiry){
+    // Drive connected — save there only, no local download needed
+    saveToDrive(invoiceNum).then(()=>{
+      toast("☁️ Backed up to Google Drive ✓");
+    }).catch(()=>{
+      // Drive failed — fall back to local
+      localBackupDownload(invoiceNum);
+      toast("📁 Drive unavailable — backup saved to Downloads");
+    });
+  } else {
+    localBackupDownload(invoiceNum);
+    toast("📁 Backup saved to Downloads");
+  }
+}
+
+function localBackupDownload(invoiceNum){
   try{
     const data=buildBackupData();
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
@@ -972,16 +987,6 @@ function autoBackup(invoiceNum){
     a.click();
     URL.revokeObjectURL(url);
   }catch(e){console.warn("Local backup failed:",e);}
-  // Then try Drive if connected
-  if(driveToken){
-    saveToDrive(invoiceNum).then(()=>{
-      toast("📁 Backed up locally + saved to Google Drive ✓");
-    }).catch(()=>{
-      toast("📁 Backup saved locally (Drive sync failed)");
-    });
-  } else {
-    toast("📁 Backup saved to Downloads");
-  }
 }
 
 // ── Google Drive ──────────────────────────────────────────────────────────────
@@ -1570,6 +1575,16 @@ function renderClientHistPanel(clientId){
 }
 
 // ── Invoice ───────────────────────────────────────────────────────────────────
+function printInvoice(){
+  // Set document title to invoice number so PDF saves with that name
+  const invNum=document.getElementById("inv-num-head")?.textContent||"Invoice";
+  const prevTitle=document.title;
+  document.title=invNum;
+  window.print();
+  // Restore title after print dialog closes
+  setTimeout(()=>{document.title=prevTitle;},1000);
+}
+
 function emailInvoice(){
   // Get current invoice details from the last history entry
   const entry=invoiceHistory[invoiceHistory.length-1];
