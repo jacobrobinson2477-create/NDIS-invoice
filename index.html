@@ -951,7 +951,7 @@ function exportData(){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  const date=new Date().toISOString().slice(0,10);
+  const date=new Date().toLocaleDateString("en-CA");
   a.href=url;
   a.download=`ndis-backup-${date}.json`;
   a.click();
@@ -966,7 +966,7 @@ function autoBackup(invoiceNum){
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
-    const date=new Date().toISOString().slice(0,10);
+    const date=new Date().toLocaleDateString("en-CA");
     a.href=url;
     a.download=`ndis-backup-${date}-${(invoiceNum||"inv").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
     a.click();
@@ -1046,24 +1046,19 @@ async function saveToDrive(invoiceNum){
   const token=await ensureToken();
   const folderId=await ensureDriveFolder();
   const data=buildBackupData();
-  // Use local date not UTC to avoid timezone issues
-  const now=new Date();
-  const date=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const date=new Date().toLocaleDateString("en-CA");
   const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
   const content=JSON.stringify(data,null,2);
   const metadata=JSON.stringify({name:filename,parents:[folderId],mimeType:"application/json"});
-  // Proper multipart MIME format
-  const boundary="ndis_boundary_"+Date.now();
-  const delim="\r\n--"+boundary+"\r\n";
-  const closeDelim="\r\n--"+boundary+"--";
+  const boundary="ndis_bnd_"+Date.now();
   const body=
     "--"+boundary+"\r\n"+
     "Content-Type: application/json; charset=UTF-8\r\n\r\n"+
-    metadata+
-    delim+
+    metadata+"\r\n"+
+    "--"+boundary+"\r\n"+
     "Content-Type: application/json\r\n\r\n"+
-    content+
-    closeDelim;
+    content+"\r\n"+
+    "--"+boundary+"--";
   const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",{
     method:"POST",
     headers:{
@@ -1074,7 +1069,7 @@ async function saveToDrive(invoiceNum){
   });
   const result=await resp.json();
   if(!resp.ok){
-    console.error("Drive upload failed:",result);
+    console.error("Drive upload error:",result);
     throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
   }
   console.log("Drive backup saved:",result.name);
@@ -1598,7 +1593,7 @@ function goInvoice(){
   // Save to history
   const histEntry={
     id:uid(),clientId:activeId,clientName:cl.name||"",
-    invoiceNum:userInvNum,date:(()=>{const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;})(),
+    invoiceNum:userInvNum,date:new Date().toLocaleDateString("en-CA"),
     subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes
   };
   invoiceHistory=[histEntry,...invoiceHistory];
@@ -2002,7 +1997,7 @@ function populateReportMonths(){
     months.add(d.toISOString().slice(0,7));
   }
   const sorted=[...months].sort((a,b)=>b.localeCompare(a));
-  const cur=sel.value||new Date().toISOString().slice(0,7);
+  const cur=sel.value||new Date().toLocaleDateString("en-CA").slice(0,7);
   sel.innerHTML=sorted.map(m=>`<option value="${m}">${fmtMonthYear(m+"-01")}</option>`).join("");
   sel.value=cur;
 }
@@ -2016,7 +2011,7 @@ function populateReportClients(){
 }
 
 function renderReport(){
-  const month=document.getElementById("rpt-month")?.value||new Date().toISOString().slice(0,7);
+  const month=document.getElementById("rpt-month")?.value||new Date().toLocaleDateString("en-CA").slice(0,7);
   const filterClient=document.getElementById("rpt-client")?.value||"";
   const body=document.getElementById("rpt-body");
 
