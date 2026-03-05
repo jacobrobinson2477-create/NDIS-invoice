@@ -1743,7 +1743,10 @@ function buildInvoice(entry){
         ${worker.bsb?"BSB: "+esc(worker.bsb)+"<br/>":""}
         ${worker.account?"ACC#: "+esc(worker.account):""}
       </div>
-      <div class="inv-disc-bar">NDIS support worker services are generally GST-free · Rates: NDIS PAPL 2025–26 v1.1 · Verify at ndis.gov.au</div>
+      <div class="inv-disc-bar">
+        ${entry.useGst?"GST is applicable to this invoice at 10%.":"No GST applicable — NDIS support services are GST-free (ATO GSTR 2002/2)."}
+        &nbsp;·&nbsp;Rates: NDIS PAPL 2025–26 v1.1 · Verify at ndis.gov.au
+      </div>
     </div>
   `;
 }
