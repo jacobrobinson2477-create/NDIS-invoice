@@ -2031,10 +2031,24 @@ function emailInvoice(){
   setTimeout(async()=>{
     try{
       const el=document.getElementById("inv-render");
-      const canvas=await html2canvas(el,{scale:1.5,useCORS:true,backgroundColor:"#ffffff"});
+      // Force a fixed render width matching the invoice design (720px) so the PDF
+      // is never zoomed in regardless of the current screen/window width
+      const prevWidth=el.style.width;
+      el.style.width="720px";
+      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:"#ffffff",width:720,windowWidth:720});
+      el.style.width=prevWidth;
       const{jsPDF}=window.jspdf;const pdf=new jsPDF("p","mm","a4");
-      const w=pdf.internal.pageSize.getWidth();const h=(canvas.height*w)/canvas.width;
-      pdf.addImage(canvas.toDataURL("image/jpeg",0.7),"JPEG",0,0,w,h);pdf.save(`${invoiceNum}.pdf`);
+      const pageW=pdf.internal.pageSize.getWidth();
+      const pageH=pdf.internal.pageSize.getHeight();
+      const imgH=(canvas.height*pageW)/canvas.width;
+      // If invoice is taller than one page, scale it to fit
+      if(imgH>pageH){
+        const scale=pageH/imgH;
+        pdf.addImage(canvas.toDataURL("image/jpeg",0.85),"JPEG",0,0,pageW*scale,pageH);
+      }else{
+        pdf.addImage(canvas.toDataURL("image/jpeg",0.85),"JPEG",0,0,pageW,imgH);
+      }
+      pdf.save(`${invoiceNum}.pdf`);
       toast("\u{1F4C4} PDF saved!");
     }catch(e){console.warn("PDF gen failed:",e);}
     if(isMobile){
