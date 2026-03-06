@@ -2014,36 +2014,66 @@ function emailInvoice(){
   const pmEmail=cl.pm?.email||"";const invoiceNum=entry.invoiceNum||"Invoice";const workerName=worker.name||"Support Worker";
   const total=aud(entry.total||0);
   const date=entry.date?new Date(entry.date+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}):"";
-  const subject=encodeURIComponent(`${invoiceNum} — NDIS Support Services — ${workerName}`);
-  const body=encodeURIComponent(`Hi${cl.pm?.contact?" "+cl.pm.contact:""},\n\nPlease find attached ${invoiceNum} for NDIS support services provided to ${cl.name||"participant"}.\n\nInvoice number: ${invoiceNum}\nDate: ${date}\nTotal: ${total}\nWorker: ${workerName}${worker.abn?"\nABN: "+worker.abn:""}\n\nPlease don't hesitate to contact me if you have any questions.\n\nKind regards,\n${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`);
-  toast("📄 Generating PDF...");const entryId=entry.id;
+  const subjectRaw=`${invoiceNum} \u2014 NDIS Support Services \u2014 ${workerName}`;
+  const bodyRaw=`Hi${cl.pm?.contact?" "+cl.pm.contact:""},\n\nPlease find attached ${invoiceNum} for NDIS support services provided to ${cl.name||"participant"}.\n\nInvoice number: ${invoiceNum}\nDate: ${date}\nTotal: ${total}\nWorker: ${workerName}${worker.abn?"\nABN: "+worker.abn:""}\n\nPlease don't hesitate to contact me if you have any questions.\n\nKind regards,\n${workerName}${worker.phone?"\n"+worker.phone:""}${worker.email?"\n"+worker.email:""}`;
+  const subject=encodeURIComponent(subjectRaw);
+  const body=encodeURIComponent(bodyRaw);
+  const entryId=entry.id;
+  const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  toast("\u{1F4C4} Generating PDF...");
   setTimeout(async()=>{
     try{
       const el=document.getElementById("inv-render");
-      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:"#ffffff"});
+      const canvas=await html2canvas(el,{scale:1.5,useCORS:true,backgroundColor:"#ffffff"});
       const{jsPDF}=window.jspdf;const pdf=new jsPDF("p","mm","a4");
       const w=pdf.internal.pageSize.getWidth();const h=(canvas.height*w)/canvas.width;
-      pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h);pdf.save(`${invoiceNum}.pdf`);
-      toast("📄 PDF saved — now attach it in Gmail");
-    }catch(e){console.warn("PDF gen failed:",e);toast("⚠ Could not auto-generate PDF — use Print/PDF instead");}
-    const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-    const isAndroid=/Android/i.test(navigator.userAgent);
-    if(isAndroid){
-      // Try googlegmail:// deep link first, fall back to web
-      const gmailApp=`googlegmail://co?to=${encodeURIComponent(pmEmail)}&subject=${subject}&body=${body}`;
-      window.location.href=gmailApp;
-      setTimeout(()=>{window.location.href=gmailUrl;},1500);
+      pdf.addImage(canvas.toDataURL("image/jpeg",0.7),"JPEG",0,0,w,h);pdf.save(`${invoiceNum}.pdf`);
+      toast("\u{1F4C4} PDF saved!");
+    }catch(e){console.warn("PDF gen failed:",e);}
+    if(isMobile){
+      showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
     }else{
-      window.location.href=gmailUrl;
+      window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+      setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
     }
-    setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
   },200);
+}
+function showEmailModal(pmEmail,subject,body,entryId,invoiceNum){
+  const existing=document.getElementById("email-details-modal");if(existing)existing.remove();
+  const full=`To: ${pmEmail}\nSubject: ${subject}\n\n${body}`;
+  const modal=document.createElement("div");
+  modal.id="email-details-modal";
+  modal.style.cssText="position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;padding:0;";
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:80vh;overflow-y:auto;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px;">📧 Email Invoice</div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Tap Copy, then paste into a new Gmail compose</div>
+      <div id="email-full-text" style="background:#f3f4f6;border-radius:10px;padding:12px;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;max-height:200px;overflow-y:auto;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="copy-email-btn" style="flex:1;padding:13px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;font-weight:700;background:#fff;cursor:pointer;">📋 Copy All</button>
+        <button id="mark-sent-btn" style="flex:1;padding:13px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">✅ Mark Sent</button>
+      </div>
+      <button id="cancel-email-btn" style="width:100%;margin-top:10px;padding:12px;background:none;border:none;color:#6b7280;font-size:14px;cursor:pointer;">Cancel</button>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById("email-full-text").textContent=full;
+  document.getElementById("copy-email-btn").onclick=()=>{
+    navigator.clipboard.writeText(full).catch(()=>{});
+    const btn=document.getElementById("copy-email-btn");
+    btn.textContent="✓ Copied!";btn.style.background="#059669";btn.style.color="#fff";
+    setTimeout(()=>{btn.textContent="📋 Copy All";btn.style.background="";btn.style.color="";},2000);
+  };
+  document.getElementById("mark-sent-btn").onclick=()=>{
+    document.getElementById("email-details-modal").remove();
+    showSentConfirm(entryId,invoiceNum);
+  };
+  document.getElementById("cancel-email-btn").onclick=()=>document.getElementById("email-details-modal").remove();
 }
 function showSentConfirm(entryId,invoiceNum){
   const modal=document.getElementById("sent-confirm-modal");if(!modal)return;
   const sn=document.getElementById("sent-confirm-num");if(sn)sn.textContent=invoiceNum;
   const sy=document.getElementById("sent-confirm-yes");
-  if(sy)sy.onclick=()=>{invoiceHistory=invoiceHistory.map(h=>h.id===entryId?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);ls.set("ndis-history",invoiceHistory);modal.style.display="none";toast("✅ Marked as sent");};
+  if(sy)sy.onclick=()=>{invoiceHistory=invoiceHistory.map(h=>h.id===entryId?{...h,payStatus:"sent",sentDate:new Date().toLocaleDateString("en-CA")}:h);ls.set("ndis-history",invoiceHistory);syncToDrive();modal.style.display="none";toast("✅ Marked as sent");};
   const sno=document.getElementById("sent-confirm-no");if(sno)sno.onclick=()=>{modal.style.display="none";};
   modal.style.display="flex";
 }
