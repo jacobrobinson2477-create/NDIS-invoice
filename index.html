@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="screen"/>
 <style>@media print{*{font-family:Arial,Helvetica,sans-serif!important;}}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -179,7 +180,17 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .empty-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;}
 .empty-sub{font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.5;}
 
-/* ── DISCLAIMER ── */
+/* ── TAX PDF IMPORT ── */
+.pdf-drop-zone{border:2px dashed var(--border2);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:#fff;margin-bottom:14px;}
+.pdf-drop-zone:hover,.pdf-drop-zone.drag-over{border-color:var(--green);background:var(--sky);}
+.pdf-drop-icon{font-size:28px;margin-bottom:6px;}
+.pdf-drop-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.pdf-drop-sub{font-size:12px;color:var(--sub);}
+.pdf-drop-sub span{color:var(--green);font-weight:500;cursor:pointer;}
+.imported-inv-row{background:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 16px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;margin-bottom:6px;}
+.imported-badge{font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:2px 6px;letter-spacing:.5px;}
+.imp-parse-msg{font-size:11px;color:var(--faint);font-style:italic;margin-top:3px;}
+
 .disc{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#92400e;margin-top:12px;line-height:1.5;}
 
 /* ── INVOICE HISTORY ── */
@@ -596,7 +607,8 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
           <div class="ph-title" id="inv-num-head">Invoice</div>
         </div>
         <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+          <button class="btn btn-primary" onclick="printInvoice()">🖨 Print / PDF</button>
+          <button class="btn btn-soft" onclick="emailInvoice()">📧 Email Invoice</button>
           <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
           <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
         </div>
@@ -665,6 +677,20 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <select id="tax-fy" onchange="renderTax()"></select>
         <select id="tax-client" onchange="renderTax()"><option value="">All clients</option></select>
       </div>
+
+      <!-- PDF Import Drop Zone -->
+      <div class="pdf-drop-zone" id="pdf-drop-zone"
+           ondragover="pdfDragOver(event)" ondragleave="pdfDragLeave(event)" ondrop="pdfDrop(event)"
+           onclick="document.getElementById('pdf-file-input').click()">
+        <div class="pdf-drop-icon">📂</div>
+        <div class="pdf-drop-title">Import Previous Invoices (PDF)</div>
+        <div class="pdf-drop-sub">Drag &amp; drop old PDF invoices here, or <span>browse files</span>. Imported invoices are treated as paid &amp; included in totals.</div>
+      </div>
+      <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="pdfFileSelected(event)"/>
+
+      <!-- Imported invoices list (shown when there are imports) -->
+      <div id="imported-inv-list"></div>
+
       <div id="tax-body"></div>
     </div>
 
@@ -744,6 +770,7 @@ let activeId=null;
 let editId=null;
 let sessions=[];
 let invoiceHistory=[]; // [{id, clientId, clientName, invoiceNum, date, total, gst, sessions, notes}]
+let importedInvoices=[]; // [{id, invoiceNum, clientName, date, total, gst, payStatus:"paid", source:"pdf", fileName}]
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.addEventListener("error",e=>{console.error("App error:",e.message,e.filename,e.lineno);});
@@ -752,7 +779,17 @@ window.addEventListener("load",()=>{
     const w=ls.get("ndis-worker"),c=ls.get("ndis-clients"),h=ls.get("ndis-history");
     if(w) worker={...worker,...w};
     if(c) clients=c;
-    if(h) invoiceHistory=h;
+    if(h){
+      // Migrate old h.paid boolean → h.payStatus string
+      invoiceHistory=h.map(inv=>{
+        if(inv.payStatus)return inv; // already migrated
+        if(inv.paid===true)return{...inv,payStatus:"paid",payDate:inv.paidDate||null};
+        if(inv.paid===false)return{...inv,payStatus:"unpaid"};
+        return{...inv,payStatus:"unpaid"};
+      });
+    }
+    const imp=ls.get("ndis-imported-invoices");
+    if(imp) importedInvoices=imp;
   }catch(e){console.error("Boot load error:",e);}
   try{renderSidebar();}catch(e){console.error("renderSidebar error:",e);}
   try{populateReportMonths();}catch(e){console.error("populateReportMonths error:",e);}
@@ -799,7 +836,7 @@ function goPage(name){
     if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
-    if(name==="tax"){populateTaxFY();renderTax();}
+    if(name==="tax"){populateTaxFY();renderImportedList();renderTax();}
     if(name==="history"){populateHistoryFilter();renderHistory();}
     if(name==="report"){populateReportClients();renderReport();}
   }catch(err){console.error("goPage error:",err);}
@@ -1434,9 +1471,12 @@ function checkPaymentReminders(){
   const now=new Date();
   const overdue=invoiceHistory.filter(h=>{
     if(h.payStatus==="paid")return false;
-    if(h.payStatus!=="sent")return false;
-    const sent=new Date((h.sentDate||h.date)+"T12:00:00");
-    return(now-sent)/(1000*60*60*24)>=3;
+    const refDate=new Date((h.sentDate||h.date)+"T12:00:00");
+    const daysSince=(now-refDate)/(1000*60*60*24);
+    // Sent invoices: remind after 3 days
+    if(h.payStatus==="sent")return daysSince>=3;
+    // Unpaid invoices: remind after 7 days
+    return daysSince>=7;
   });
   if(!overdue.length)return;
   const list=document.getElementById("pay-remind-list");if(!list)return;
@@ -1770,6 +1810,7 @@ function getFY(dateStr){if(!dateStr)return null;const d=new Date(dateStr+"T12:00
 function populateTaxFY(){
   const sel=document.getElementById("tax-fy");const clientSel=document.getElementById("tax-client");if(!sel)return;
   const fys=new Set();invoiceHistory.forEach(h=>{const fy=getFY(h.date);if(fy)fys.add(fy);});
+  importedInvoices.forEach(h=>{const fy=getFY(h.date);if(fy)fys.add(fy);});
   const now=new Date();const curFY=now.getMonth()>=6?`${now.getFullYear()}-${now.getFullYear()+1}`:`${now.getFullYear()-1}-${now.getFullYear()}`;
   fys.add(curFY);const sorted=[...fys].sort((a,b)=>b.localeCompare(a));const cur=sel.value||curFY;
   sel.innerHTML=sorted.map(fy=>`<option value="${fy}">FY ${fy}</option>`).join("");sel.value=cur;
@@ -1779,14 +1820,26 @@ function populateTaxFY(){
 function renderTax(){
   const fy=document.getElementById("tax-fy")?.value||"";const filterClient=document.getElementById("tax-client")?.value||"";
   const body=document.getElementById("tax-body");if(!body)return;
+  // Merge generated invoices + imported PDF invoices
   let list=invoiceHistory.filter(h=>getFY(h.date)===fy);if(filterClient)list=list.filter(h=>h.clientId===filterClient);
-  if(!list.length){body.innerHTML=`<div class="empty" style="padding:40px;"><div class="empty-icon">🧾</div><div class="empty-title">No invoices for FY ${esc(fy)}</div><div class="empty-sub">Invoices you generate will appear here for tax reporting.</div></div>`;return;}
-  const totalIncome=list.reduce((s,h)=>s+h.total,0);const totalGst=list.reduce((s,h)=>s+(h.gst||0),0);
+  // Add imported invoices (always paid, no clientId filter since they don't have clientId)
+  const impList=importedInvoices.filter(i=>getFY(i.date)===fy).map(i=>({
+    ...i, clientId:"__imported__", sessions:[], payStatus:"paid"
+  }));
+  // If client filter active, only include imported if client name matches
+  const filteredImp=filterClient?[]:impList;
+  const combined=[...list,...filteredImp];
+  if(!combined.length){body.innerHTML=`<div class="empty" style="padding:40px;"><div class="empty-icon">🧾</div><div class="empty-title">No invoices for FY ${esc(fy)}</div><div class="empty-sub">Invoices you generate will appear here for tax reporting. You can also import old PDF invoices above.</div></div>`;return;}
+  const totalIncome=combined.reduce((s,h)=>s+h.total,0);const totalGst=combined.reduce((s,h)=>s+(h.gst||0),0);
   const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
   const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
-  const paidList=list.filter(h=>h.payStatus==="paid");const unpaidList=list.filter(h=>h.payStatus!=="paid");
+  const paidList=combined.filter(h=>h.payStatus==="paid");const unpaidList=combined.filter(h=>h.payStatus!=="paid");
   const totalPaid=paidList.reduce((s,h)=>s+h.total,0);const totalUnpaid=unpaidList.reduce((s,h)=>s+h.total,0);
-  const byPM={};list.forEach(h=>{const cl=clients.find(x=>x.id===h.clientId);const pm=cl?.pm?.org||"Unknown Plan Manager";if(!byPM[pm])byPM[pm]={total:0,invoices:0,paid:0,unpaid:0};byPM[pm].total+=h.total;byPM[pm].invoices++;if(h.payStatus==="paid")byPM[pm].paid+=h.total;else byPM[pm].unpaid+=h.total;});
+  const byPM={};combined.forEach(h=>{
+    let pm="Unknown Plan Manager";
+    if(h.clientId!=="__imported__"){const cl=clients.find(x=>x.id===h.clientId);pm=cl?.pm?.org||"Unknown Plan Manager";}
+    else{pm=h.pmOrg||"Imported (PDF)";}
+    if(!byPM[pm])byPM[pm]={total:0,invoices:0,paid:0,unpaid:0};byPM[pm].total+=h.total;byPM[pm].invoices++;if(h.payStatus==="paid")byPM[pm].paid+=h.total;else byPM[pm].unpaid+=h.total;});
   body.innerHTML=`
     <div class="report-grid" style="margin-bottom:16px;">
       <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${aud(totalIncome)}</div><div class="stat-lbl">Total Income</div></div>
@@ -1795,17 +1848,174 @@ function renderTax(){
       <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-val">${aud(totalUnpaid)}</div><div class="stat-lbl">Outstanding</div></div>
       <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-val">${totalHours} hrs</div><div class="stat-lbl">Hours Worked</div></div>
       ${totalKm>0?`<div class="stat-card"><div class="stat-icon">🚗</div><div class="stat-val">${totalKm} km</div><div class="stat-lbl">Travel (${aud(totalKm*0.99)})</div></div>`:""}
-      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${list.length}</div><div class="stat-lbl">Invoices</div></div>
+      <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val">${combined.length}</div><div class="stat-lbl">Invoices</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;"><div class="card-hd"><span class="card-hd-icon">🏢</span> Income by Plan Manager</div><table class="breakdown-table"><thead><tr><th>Plan Manager</th><th class="r">Invoices</th><th class="r">Received</th><th class="r">Outstanding</th><th class="r">Total</th></tr></thead><tbody>${Object.entries(byPM).sort((a,b)=>b[1].total-a[1].total).map(([pm,v])=>`<tr><td>${esc(pm)}</td><td class="r">${v.invoices}</td><td class="r" style="color:var(--green-d)">${aud(v.paid)}</td><td class="r" style="color:var(--amber)">${aud(v.unpaid)}</td><td class="r" style="font-weight:600">${aud(v.total)}</td></tr>`).join("")}</tbody></table></div>
-    ${totalGst>0?`<div class="card" style="margin-bottom:14px;"><div class="card-hd"><span class="card-hd-icon">📑</span> GST Summary</div><table class="breakdown-table"><thead><tr><th>Quarter</th><th class="r">Invoices</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th></tr></thead><tbody>${["Q1 (Jul–Sep)","Q2 (Oct–Dec)","Q3 (Jan–Mar)","Q4 (Apr–Jun)"].map((qLabel,qi)=>{const qMonths=[[6,7,8],[9,10,11],[0,1,2],[3,4,5]][qi];const qList=list.filter(h=>{const m=new Date(h.date+"T12:00:00").getMonth();return qMonths.includes(m);});if(!qList.length)return"";const qSub=qList.reduce((s,h)=>s+(h.subtotal||h.total),0);const qGst=qList.reduce((s,h)=>s+(h.gst||0),0);const qTot=qList.reduce((s,h)=>s+h.total,0);return`<tr><td>${qLabel}</td><td class="r">${qList.length}</td><td class="r">${aud(qSub)}</td><td class="r" style="color:var(--green-d)">${aud(qGst)}</td><td class="r" style="font-weight:600">${aud(qTot)}</td></tr>`;}).join("")}</tbody></table></div>`:""}
-    <div class="card" style="margin-bottom:14px;"><div class="card-hd"><span class="card-hd-icon">📋</span> All Invoices — FY ${esc(fy)}</div><table class="breakdown-table"><thead><tr><th>Invoice</th><th>Client</th><th class="r">Date</th><th class="r">Status</th><th class="r">Total</th></tr></thead><tbody>${list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${esc(h.invoiceNum)}</td><td>${esc(h.clientName)}</td><td class="r">${fmtShort(h.date)}</td><td class="r" style="font-size:11px;font-weight:600;color:${h.payStatus==="paid"?"var(--green-d)":h.payStatus==="sent"?"#1e40af":"var(--amber)"}">${h.payStatus==="paid"?"Paid":h.payStatus==="sent"?"Sent":"Unpaid"}</td><td class="r" style="font-weight:600">${aud(h.total)}</td></tr>`).join("")}</tbody></table></div>
+    ${totalGst>0?`<div class="card" style="margin-bottom:14px;"><div class="card-hd"><span class="card-hd-icon">📑</span> GST Summary</div><table class="breakdown-table"><thead><tr><th>Quarter</th><th class="r">Invoices</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th></tr></thead><tbody>${["Q1 (Jul–Sep)","Q2 (Oct–Dec)","Q3 (Jan–Mar)","Q4 (Apr–Jun)"].map((qLabel,qi)=>{const qMonths=[[6,7,8],[9,10,11],[0,1,2],[3,4,5]][qi];const qList=combined.filter(h=>{const m=new Date(h.date+"T12:00:00").getMonth();return qMonths.includes(m);});if(!qList.length)return"";const qSub=qList.reduce((s,h)=>s+(h.subtotal||h.total),0);const qGst=qList.reduce((s,h)=>s+(h.gst||0),0);const qTot=qList.reduce((s,h)=>s+h.total,0);return`<tr><td>${qLabel}</td><td class="r">${qList.length}</td><td class="r">${aud(qSub)}</td><td class="r" style="color:var(--green-d)">${aud(qGst)}</td><td class="r" style="font-weight:600">${aud(qTot)}</td></tr>`;}).join("")}</tbody></table></div>`:""}
+    <div class="card" style="margin-bottom:14px;"><div class="card-hd"><span class="card-hd-icon">📋</span> All Invoices — FY ${esc(fy)}</div><table class="breakdown-table"><thead><tr><th>Invoice</th><th>Client</th><th class="r">Date</th><th class="r">Source</th><th class="r">Status</th><th class="r">Total</th></tr></thead><tbody>${combined.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td style="font-family:'IBM Plex Mono',monospace;font-size:12px;">${esc(h.invoiceNum)}</td><td>${esc(h.clientName)}</td><td class="r">${fmtShort(h.date)}</td><td class="r"><span style="font-size:10px;font-weight:600;color:${h.source==='pdf'?'#1d4ed8':'var(--green-d)'}">${h.source==='pdf'?'📂 PDF':'App'}</span></td><td class="r" style="font-size:11px;font-weight:600;color:${h.payStatus==="paid"?"var(--green-d)":h.payStatus==="sent"?"#1e40af":"var(--amber)"}">${h.payStatus==="paid"?"Paid":h.payStatus==="sent"?"Sent":"Unpaid"}</td><td class="r" style="font-weight:600">${aud(h.total)}</td></tr>`).join("")}</tbody></table></div>
     <div class="tax-export-row"><button class="btn btn-soft" onclick="exportTaxCSV('${esc(fy)}')">📥 Export CSV for Accountant</button></div>`;
 }
+// ── PDF INVOICE IMPORT ────────────────────────────────────────────────────────
+// Configure PDF.js worker
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pdfDragOver(e){e.preventDefault();document.getElementById('pdf-drop-zone').classList.add('drag-over');}
+function pdfDragLeave(e){document.getElementById('pdf-drop-zone').classList.remove('drag-over');}
+function pdfDrop(e){
+  e.preventDefault();
+  document.getElementById('pdf-drop-zone').classList.remove('drag-over');
+  const files=[...e.dataTransfer.files].filter(f=>f.type==="application/pdf"||f.name.endsWith('.pdf'));
+  if(!files.length){toast("Please drop PDF files only.");return;}
+  files.forEach(processImportedPDF);
+}
+function pdfFileSelected(e){
+  const files=[...e.target.files];
+  files.forEach(processImportedPDF);
+  e.target.value=""; // reset so same file can be re-added
+}
+
+async function processImportedPDF(file){
+  if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
+  const existingName=importedInvoices.find(i=>i.fileName===file.name);
+  if(existingName){toast(`"${file.name}" already imported.`);return;}
+
+  toast(`Reading ${file.name}…`,3000);
+  try{
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let fullText="";
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      fullText+=tc.items.map(i=>i.str).join(" ")+"\n";
+    }
+    const parsed=parseInvoiceText(fullText,file.name);
+    if(!parsed){toast(`⚠ Could not read invoice data from "${file.name}". Check it matches the expected format.`,4000);return;}
+    // Check for duplicate invoice number
+    if(importedInvoices.find(i=>i.invoiceNum===parsed.invoiceNum)){
+      toast(`Invoice ${parsed.invoiceNum} is already imported.`);return;}
+    importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
+    ls.set("ndis-imported-invoices",importedInvoices);
+    renderImportedList();
+    renderTax();
+    toast(`✓ Imported ${parsed.invoiceNum} — ${aud(parsed.total)}`);
+  }catch(err){
+    console.error("PDF parse error:",err);
+    toast(`⚠ Error reading "${file.name}": ${err.message}`,4000);
+  }
+}
+
+function parseInvoiceText(text, fileName){
+  // Normalise whitespace
+  const t=text.replace(/\s+/g," ");
+
+  // Invoice number — looks for "Invoice" or "Invoice No" followed by word chars
+  const invMatch=t.match(/Invoice\s+(?:No\.?\s*|#\s*)?([A-Z]{1,4}\d+|\d+[A-Z]{0,3})/i)||
+                 t.match(/Invoice\s+([A-Z]{0,4}\d{1,6})/i);
+  const invoiceNum=invMatch?invMatch[1].toUpperCase():("IMP-"+fileName.replace(/[^a-z0-9]/gi,"").slice(0,8).toUpperCase());
+
+  // Date — "Submitted on DD/MM/YYYY" or "Date: DD/MM/YYYY"
+  const dateMatch=t.match(/(?:Submitted\s+on|Date:?)\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/i);
+  let isoDate="";
+  if(dateMatch){
+    let [,d,m,y]=dateMatch;
+    if(y.length===2) y="20"+y;
+    isoDate=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+  } else {
+    // Try YYYY-MM-DD or similar
+    const d2=t.match(/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
+    if(d2) isoDate=`${d2[1]}-${d2[2]}-${d2[3]}`;
+  }
+  if(!isoDate) isoDate=new Date().toISOString().slice(0,10);
+
+  // Client name — text before "Ndis no" or "NDIS no"
+  const clientMatch=t.match(/(?:Invoice\s+for\s+(?:For\s+)?)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?:\s+(?:Ndis|NDIS))/i)||
+                    t.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+\d{2}[\/\-]\d{2}/);
+  // Also try "For\n<name>" pattern
+  const forMatch=t.match(/\bFor\b\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i);
+  const clientName=(forMatch?forMatch[1]:null)||(clientMatch?clientMatch[1]:null)||"Unknown Client";
+
+  // Total — look for the last dollar amount, or "Total price" amount
+  // Try to find "$XXX.XX" amounts and pick the last/largest
+  const amounts=[...t.matchAll(/\$\s*([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,"")));
+  // Also try plain numbers that look like totals after "Total"
+  const totalMatch=t.match(/Total\s+(?:price\s+)?\$?\s*([\d,]+\.\d{2})/i);
+  let total=0;
+  if(amounts.length){
+    // Use the last dollar amount (most likely the invoice total)
+    total=amounts[amounts.length-1];
+    // If there's an explicit "Total price" value, prefer it
+    if(totalMatch) total=parseFloat(totalMatch[1].replace(/,/g,""));
+  }
+  if(!total||isNaN(total)) return null; // can't make sense of it
+
+  // GST — look for "GST" near a dollar amount
+  const gstMatch=t.match(/GST[^$]*\$\s*([\d,]+\.\d{2})/i)||t.match(/\$\s*([\d,]+\.\d{2})\s*GST/i);
+  const gst=gstMatch?parseFloat(gstMatch[1].replace(/,/g,"")):0;
+
+  // Plan manager org
+  const pmMatch=t.match(/(?:Trusted Plan Management|Plan\s+Management[^\n]{0,40})/i);
+  const pmOrg=pmMatch?pmMatch[0].trim():"";
+
+  return {invoiceNum, date:isoDate, clientName:clientName.trim(), total, gst, pmOrg, subtotal:total-gst};
+}
+
+function renderImportedList(){
+  const el=document.getElementById("imported-inv-list");
+  if(!el) return;
+  if(!importedInvoices.length){el.innerHTML="";return;}
+  el.innerHTML=`
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd">
+        <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📂</span> Imported PDF Invoices</span>
+        <button class="btn btn-ghost btn-sm" onclick="clearImportedInvoices()">🗑 Clear All</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${importedInvoices.map(inv=>`
+          <div class="imported-inv-row">
+            <span class="imported-badge">PDF</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(inv.invoiceNum)} — ${esc(inv.clientName)}</div>
+              <div class="imp-parse-msg">${esc(inv.fileName)} · ${fmtShort(inv.date)}</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--green-d);">${aud(inv.total)}</div>
+            <button class="btn btn-ghost btn-sm" onclick="removeImportedInvoice('${inv.id}')" title="Remove">✕</button>
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function removeImportedInvoice(id){
+  importedInvoices=importedInvoices.filter(i=>i.id!==id);
+  ls.set("ndis-imported-invoices",importedInvoices);
+  renderImportedList();
+  renderTax();
+  toast("Removed imported invoice.");
+}
+
+function clearImportedInvoices(){
+  if(!confirm("Remove all imported PDF invoices?")) return;
+  importedInvoices=[];
+  ls.set("ndis-imported-invoices",importedInvoices);
+  renderImportedList();
+  renderTax();
+  toast("Cleared imported invoices.");
+}
+
 function exportTaxCSV(fy){
   const filterClient=document.getElementById("tax-client")?.value||"";
   let list=invoiceHistory.filter(h=>getFY(h.date)===fy);if(filterClient)list=list.filter(h=>h.clientId===filterClient);
-  const rows=[["Invoice Number","Date","Client","Plan Manager","Hours","KM","Subtotal","GST","Total","Status","Payment Date","Remittance Ref"],...list.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{const cl=clients.find(x=>x.id===h.clientId);const hrs=h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);const km=h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0);return[h.invoiceNum,h.date,h.clientName,cl?.pm?.org||"",hrs,km,(h.subtotal||h.total).toFixed(2),(h.gst||0).toFixed(2),h.total.toFixed(2),h.payStatus||"unpaid",h.payDate||"",h.remittanceRef||""];})];
+  const impList=filterClient?[]:importedInvoices.filter(i=>getFY(i.date)===fy);
+  const combined=[...list,...impList];
+  const rows=[["Invoice Number","Date","Client","Plan Manager","Hours","KM","Subtotal","GST","Total","Status","Source","Payment Date","Remittance Ref"],...combined.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{
+    const cl=clients.find(x=>x.id===h.clientId);
+    const hrs=(h.sessions||[]).filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);
+    const km=(h.sessions||[]).filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0);
+    const pm=h.source==="pdf"?(h.pmOrg||"Imported (PDF)"):(cl?.pm?.org||"");
+    return[h.invoiceNum,h.date,h.clientName,pm,hrs,km,(h.subtotal||h.total).toFixed(2),(h.gst||0).toFixed(2),h.total.toFixed(2),h.payStatus||"paid",h.source==="pdf"?"PDF Import":"App",h.payDate||"",h.remittanceRef||""];
+  })];
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
   const a=document.createElement("a");a.href=url;a.download=`ndis-tax-FY${fy}.csv`;a.click();URL.revokeObjectURL(url);toast("CSV exported ✓");
