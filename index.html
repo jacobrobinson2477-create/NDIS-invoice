@@ -829,8 +829,8 @@ window.addEventListener("load",()=>{
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
     else goPage("dashboard");
     if(ls.get("ndis-drive-connected")){
-      const btn=document.getElementById("drive-connect-btn");if(btn)btn.textContent="☁️ Connect Drive";
-      setTimeout(()=>{const m=document.getElementById("drive-reconnect-modal");if(m)m.style.display="flex";},1000);
+      const btn=document.getElementById("drive-connect-btn");if(btn)btn.textContent="☁️ Reconnect Drive";
+      setTimeout(()=>{const m=document.getElementById("drive-reconnect-modal");if(m)m.style.display="flex";},1200);
     }
   }catch(e){console.error("goPage error:",e);}
   setTimeout(function(){try{checkPaymentReminders();}catch(e){console.warn("Reminder check failed:",e);}},1800);
@@ -940,6 +940,7 @@ function saveWorker(){
     address:g("s-address"),payableName:g("s-payable"),prefix:g("s-prefix")};
   if(!worker.name){alert("Please enter your name or business name.");return;}
   ls.set("ndis-worker",worker);
+  syncToDrive();
   const btn=document.getElementById("save-btn");
   btn.textContent="✓ Saved!";
   toast("Profile saved ✓");
@@ -1113,6 +1114,7 @@ function saveClient(){
         address:g("cl-pmaddress"),suburb:g("cl-pmsuburb"),state:g("cl-pmstate"),postcode:g("cl-pmpost")}};
   clients=editId?clients.map(x=>x.id===editId?c:x):[...clients,c];
   ls.set("ndis-clients",clients);
+  syncToDrive();
   renderSidebar();
   toast(editId?"Client updated ✓":"Client added ✓");
   goPage("dashboard");
@@ -1122,6 +1124,7 @@ function delClient(id){
   if(!confirm(`Delete ${c?.name}? This cannot be undone.`))return;
   clients=clients.filter(x=>x.id!==id);
   ls.set("ndis-clients",clients);
+  syncToDrive();
   if(activeId===id){activeId=null;sessions=[];}
   renderSidebar();goPage("dashboard");
 }
@@ -1549,6 +1552,7 @@ function deleteHistEntry(id){
   if(!confirm("Delete this invoice record?"))return;
   invoiceHistory=invoiceHistory.filter(x=>x.id!==id);
   ls.set("ndis-history",invoiceHistory);
+  syncToDrive();
   renderHistory();
   toast("Invoice deleted");
 }
@@ -1556,12 +1560,14 @@ function deleteHistEntry(id){
 function markPaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
+  syncToDrive();
   renderHistory();
   toast("💰 Marked as paid ✓");
 }
 function markUnpaid(id){
   invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"unpaid",payDate:null}:h);
   ls.set("ndis-history",invoiceHistory);
+  syncToDrive();
   renderHistory();
   toast("Invoice marked as unpaid");
 }
@@ -1788,7 +1794,9 @@ function handleImportFile(input){
 // ── Google Drive ──────────────────────────────────────────────────────────────
 const GDRIVE_CLIENT_ID="458867560594-2lf0e6t1omso4aoa1ru6734mjm8uqur3.apps.googleusercontent.com";
 const GDRIVE_SCOPE="https://www.googleapis.com/auth/drive.file";
-let driveToken=null,driveTokenExpiry=0,driveFolderId=null;
+const SYNC_FILENAME="ndis-sync.json";
+let driveToken=null,driveTokenExpiry=0,driveFolderId=null,syncFileId=null;
+
 function connectDrive(){
   return new Promise((resolve,reject)=>{
     if(!window.google){reject(new Error("Google API not loaded"));return;}
@@ -1810,45 +1818,126 @@ async function ensureDriveFolder(){
   const create=await fetch("https://www.googleapis.com/drive/v3/files",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({name:"NDIS Invoice Backups",mimeType:"application/vnd.google-apps.folder"})});
   driveFolderId=(await create.json()).id;return driveFolderId;
 }
-async function saveToDrive(invoiceNum){
-  const token=await ensureToken();const folderId=await ensureDriveFolder();
-  const date=new Date().toLocaleDateString("en-CA");
-  const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
-  const content=JSON.stringify(buildBackupData(),null,2);
-  const metadata=JSON.stringify({name:filename,parents:[folderId],mimeType:"application/json"});
+
+async function driveUploadFile(filename,content,existingId,folderId){
+  const token=await ensureToken();
+  const metadata=JSON.stringify(existingId?{name:filename}:{name:filename,parents:[folderId],mimeType:"application/json"});
   const boundary="ndis_bnd_"+Date.now();
   const body="--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+metadata+"\r\n--"+boundary+"\r\nContent-Type: application/json\r\n\r\n"+content+"\r\n--"+boundary+"--";
-  const resp=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"multipart/related; boundary="+boundary},body});
-  const result=await resp.json();if(!resp.ok)throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
+  const url=existingId
+    ?"https://www.googleapis.com/upload/drive/v3/files/"+existingId+"?uploadType=multipart&fields=id,name"
+    :"https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name";
+  const resp=await fetch(url,{method:existingId?"PATCH":"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"multipart/related; boundary="+boundary},body});
+  const result=await resp.json();
+  if(!resp.ok)throw new Error("Drive upload failed: "+(result.error?.message||resp.status));
   return result;
 }
+
+// Save a timestamped backup (keeps history in Drive)
+async function saveToDrive(invoiceNum){
+  const folderId=await ensureDriveFolder();
+  const date=new Date().toLocaleDateString("en-CA");
+  const filename=`ndis-backup-${date}-${(invoiceNum||"backup").replace(/[^a-zA-Z0-9]/g,"-")}.json`;
+  return await driveUploadFile(filename,JSON.stringify(buildBackupData(),null,2),null,folderId);
+}
+
+// Save/update the live sync file (used for cross-device sync)
+async function saveSyncFile(){
+  try{
+    const token=await ensureToken();
+    const folderId=await ensureDriveFolder();
+    // Find existing sync file if we don't have its ID
+    if(!syncFileId){
+      const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${SYNC_FILENAME}'+and+trashed%3Dfalse&fields=files(id,name)`,{headers:{Authorization:"Bearer "+token}});
+      const sd=await search.json();
+      if(sd.files&&sd.files.length>0)syncFileId=sd.files[0].id;
+    }
+    const result=await driveUploadFile(SYNC_FILENAME,JSON.stringify(buildBackupData(),null,2),syncFileId,folderId);
+    syncFileId=result.id;
+  }catch(e){console.warn("Sync file save failed:",e);}
+}
+
+// Load sync file from Drive and merge into local state
+async function loadSyncFile(){
+  try{
+    const token=await ensureToken();
+    // Find sync file
+    const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${SYNC_FILENAME}'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime)`,{headers:{Authorization:"Bearer "+token}});
+    const sd=await search.json();
+    if(!sd.files||sd.files.length===0)return false; // No sync file yet
+    syncFileId=sd.files[0].id;
+    // Download it
+    const dl=await fetch(`https://www.googleapis.com/drive/v3/files/${syncFileId}?alt=media`,{headers:{Authorization:"Bearer "+token}});
+    if(!dl.ok)return false;
+    const data=await dl.json();
+    if(!data.worker||!data.clients||!data.invoiceHistory)return false;
+    // Merge Drive data into local — Drive wins for cross-device sync
+    worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1,gst:false},...data.worker};
+    clients=data.clients||[];
+    invoiceHistory=(data.invoiceHistory||[]).map(inv=>{
+      if(inv.payStatus)return inv;
+      if(inv.paid===true)return{...inv,payStatus:"paid",payDate:inv.paidDate||null};
+      return{...inv,payStatus:"unpaid"};
+    });
+    // Save to localStorage too for offline use
+    ls.set("ndis-worker",worker);ls.set("ndis-clients",clients);ls.set("ndis-history",invoiceHistory);
+    return true;
+  }catch(e){console.warn("Sync load failed:",e);return false;}
+}
+
 async function toggleDriveConnection(){
   const isConnected=ls.get("ndis-drive-connected")&&driveToken&&Date.now()<driveTokenExpiry;
   if(isConnected){
     if(confirm("Disconnect Google Drive?\n\nBackups will still save to your Downloads folder.")){
-      driveToken=null;driveTokenExpiry=0;driveFolderId=null;ls.set("ndis-drive-connected",false);
+      driveToken=null;driveTokenExpiry=0;driveFolderId=null;syncFileId=null;ls.set("ndis-drive-connected",false);
       const btn=document.getElementById("drive-connect-btn");if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
       toast("Google Drive disconnected");
     }
   }else await connectAndBackupDrive();
 }
+
 async function connectAndBackupDrive(){
   try{
-    toast("Connecting to Google Drive...");driveToken=null;driveTokenExpiry=0;driveFolderId=null;
-    await connectDrive();await saveToDrive("connection-test");
-    toast("✅ Connected! Backups will now save to Google Drive automatically");
-    const btn=document.getElementById("drive-connect-btn");if(btn){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+    toast("Connecting to Google Drive...");driveToken=null;driveTokenExpiry=0;driveFolderId=null;syncFileId=null;
+    await connectDrive();
+    // Try to load existing sync file first
+    const loaded=await loadSyncFile();
+    if(loaded){
+      renderSidebar();renderDashboard();populateReportMonths();
+      toast("✅ Drive connected — data synced from your account!");
+    }else{
+      // First time — save current data to Drive
+      await saveSyncFile();
+      toast("✅ Drive connected — your data will sync across devices");
+    }
+    updateDriveBtn(true);
   }catch(e){
     toast("Could not connect to Google Drive");console.warn("Drive connect error:",e);
-    ls.set("ndis-drive-connected",false);
-    const btn=document.getElementById("drive-connect-btn");if(btn){btn.textContent="☁️ Connect Drive";btn.style.background="";}
+    ls.set("ndis-drive-connected",false);updateDriveBtn(false);
   }
 }
+
+function updateDriveBtn(connected){
+  const btn=document.getElementById("drive-connect-btn");
+  if(!btn)return;
+  if(connected){btn.textContent="✅ Drive Connected";btn.style.background="rgba(5,150,105,.35)";}
+  else{btn.textContent="☁️ Connect Drive";btn.style.background="";}
+}
+
 async function driveModalConnect(){const m=document.getElementById("drive-reconnect-modal");if(m)m.style.display="none";await connectAndBackupDrive();}
 function driveModalSkip(){const m=document.getElementById("drive-reconnect-modal");if(m)m.style.display="none";}
+
+// Called after every data change to keep Drive in sync
+function syncToDrive(){
+  if(!(driveToken&&Date.now()<driveTokenExpiry))return;
+  saveSyncFile().catch(e=>console.warn("Background sync failed:",e));
+}
+
 function autoBackup(invoiceNum){
   if(driveToken&&Date.now()<driveTokenExpiry){
-    saveToDrive(invoiceNum).then(()=>toast("☁️ Backed up to Google Drive ✓")).catch(()=>{localBackupDownload(invoiceNum);toast("📁 Drive unavailable — backup saved to Downloads");});
+    saveToDrive(invoiceNum)
+      .then(()=>{saveSyncFile();toast("☁️ Backed up to Google Drive ✓");})
+      .catch(()=>{localBackupDownload(invoiceNum);toast("📁 Drive unavailable — backup saved to Downloads");});
   }else{localBackupDownload(invoiceNum);toast("📁 Backup saved to Downloads");}
 }
 function localBackupDownload(invoiceNum){
@@ -2212,8 +2301,8 @@ function exportTaxCSV(fy){
 <div id="drive-reconnect-modal" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px;">
   <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.25);text-align:center;">
     <div style="font-size:32px;margin-bottom:10px;">☁️</div>
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Connect Google Drive</div>
-    <div style="font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.6;">Your invoices back up automatically to Google Drive. Connect now so nothing gets lost.</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">Reconnect Google Drive</div>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:22px;line-height:1.6;">Reconnect to sync your data across all your devices and keep automatic backups running.</div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" style="flex:1;" onclick="driveModalConnect()">Connect Drive</button>
       <button class="btn btn-ghost" style="flex:1;" onclick="driveModalSkip()">Not now</button>
