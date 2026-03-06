@@ -680,15 +680,27 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <select id="tax-client" onchange="renderTax()"><option value="">All clients</option></select>
       </div>
 
-      <!-- PDF Import Drop Zone -->
-      <div class="pdf-drop-zone" id="pdf-drop-zone"
-           ondragover="pdfDragOver(event)" ondragleave="pdfDragLeave(event)" ondrop="pdfDrop(event)"
-           onclick="document.getElementById('pdf-file-input').click()">
-        <div class="pdf-drop-icon">📂</div>
-        <div class="pdf-drop-title">Import Previous Invoices (PDF)</div>
-        <div class="pdf-drop-sub">Drag &amp; drop old PDF invoices here, or <span>browse files</span>. Imported invoices are treated as paid &amp; included in totals.</div>
+      <!-- PDF Import -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-hd"><span class="card-hd-icon">📂</span> Import Previous Invoices</div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:6px;">Step 1 — Who are these invoices for?</label>
+          <select id="pdf-import-client" style="background:var(--bg);border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;color:var(--text);outline:none;width:100%;cursor:pointer;" onchange="onImportClientChange()">
+            <option value="">— Select a client —</option>
+          </select>
+        </div>
+        <div id="pdf-drop-wrap" style="opacity:.4;pointer-events:none;transition:opacity .2s;">
+          <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:6px;">Step 2 — Drop their invoices</label>
+          <div class="pdf-drop-zone" id="pdf-drop-zone"
+               ondragover="pdfDragOver(event)" ondragleave="pdfDragLeave(event)" ondrop="pdfDrop(event)"
+               onclick="document.getElementById('pdf-file-input').click()">
+            <div class="pdf-drop-icon">📂</div>
+            <div class="pdf-drop-title">Drag &amp; drop PDF invoices here</div>
+            <div class="pdf-drop-sub">or <span>browse files</span> — all treated as paid</div>
+          </div>
+        </div>
+        <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="pdfFileSelected(event)"/>
       </div>
-      <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="pdfFileSelected(event)"/>
 
       <!-- Imported invoices list (shown when there are imports) -->
       <div id="imported-inv-list"></div>
@@ -838,7 +850,7 @@ function goPage(name){
     if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
-    if(name==="tax"){populateTaxFY();renderImportedList();renderTax();}
+    if(name==="tax"){populateTaxFY();populateImportClientSelect();renderImportedList();renderTax();}
     if(name==="history"){populateHistoryFilter();renderHistory();}
     if(name==="report"){populateReportClients();renderReport();}
   }catch(err){console.error("goPage error:",err);}
@@ -1819,6 +1831,26 @@ function populateTaxFY(){
   const curClient=clientSel?.value||"";
   if(clientSel){clientSel.innerHTML='<option value="">All clients</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");clientSel.value=curClient;}
 }
+function populateImportClientSelect(){
+  const sel=document.getElementById("pdf-import-client");
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Select a client —</option>'+clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  if(cur) sel.value=cur;
+  onImportClientChange();
+}
+function onImportClientChange(){
+  const sel=document.getElementById("pdf-import-client");
+  const wrap=document.getElementById("pdf-drop-wrap");
+  if(!wrap) return;
+  if(sel&&sel.value){
+    wrap.style.opacity="1";
+    wrap.style.pointerEvents="auto";
+  } else {
+    wrap.style.opacity=".4";
+    wrap.style.pointerEvents="none";
+  }
+}
 function renderTax(){
   const fy=document.getElementById("tax-fy")?.value||"";const filterClient=document.getElementById("tax-client")?.value||"";
   const body=document.getElementById("tax-body");if(!body)return;
@@ -1880,12 +1912,20 @@ function pdfFileSelected(e){
 
 async function processImportedPDFQueue(files){
   if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
+  // Get the selected client
+  const clientSel=document.getElementById("pdf-import-client");
+  const selectedClientId=clientSel?clientSel.value:"";
+  const selectedClient=clients.find(c=>c.id===selectedClientId);
+  if(!selectedClient){toast("Please select a client first.");return;}
+  // Build initials from client name for invoice numbering
+  const clientInitials=selectedClient.name.trim().split(/\s+/).map(w=>w[0].toUpperCase()).join("").replace(/[^A-Z]/g,"");
+
   let imported=0,skipped=0,failed=0;
   const dropZone=document.getElementById('pdf-drop-zone');
   if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent=`Processing 0 / ${files.length}…`;
   for(let i=0;i<files.length;i++){
     const file=files[i];
-    if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent=`Processing ${i+1} / ${files.length} — ${file.name}`;
+    if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent=`Processing ${i+1} / ${files.length}…`;
     if(importedInvoices.find(inv=>inv.fileName===file.name)){skipped++;continue;}
     try{
       const arrayBuffer=await file.arrayBuffer();
@@ -1898,16 +1938,13 @@ async function processImportedPDFQueue(files){
       }
       const parsed=parseInvoiceText(fullText,file.name);
       if(!parsed){failed++;continue;}
-      // Build invoice number: prefer filename-derived if it has 2+ initials,
-      // otherwise use client name initials + number from filename
-      let invNum=invoiceNumFromFilename(file.name);
-      const numOnly=invNum.replace(/[^0-9]/g,"");
-      const letOnly=invNum.replace(/[^A-Z]/g,"");
-      if(letOnly.length<2&&parsed.clientName&&parsed.clientName!=="Unknown Client"){
-        const nameInitials=parsed.clientName.split(/\s+/).map(w=>w[0].toUpperCase()).join("").replace(/[^A-Z]/g,"");
-        if(nameInitials.length>=2) invNum=nameInitials+(numOnly||invNum.replace(/[^0-9]/g,""));
-      }
-      parsed.invoiceNum=invNum;
+      // Use selected client for name — no guessing
+      parsed.clientName=selectedClient.name;
+      parsed.clientId=selectedClientId;
+      parsed.pmOrg=selectedClient.pm?.org||parsed.pmOrg||"";
+      // Invoice number: client initials + number extracted from filename
+      const numFromFile=(file.name.match(/(\d+)(?:\.[^.]+)?$/)||[])[1]||"";
+      parsed.invoiceNum=clientInitials+(numFromFile||"");
       importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
       ls.set("ndis-imported-invoices",importedInvoices);
       imported++;
@@ -1916,11 +1953,11 @@ async function processImportedPDFQueue(files){
       failed++;
     }
   }
-  if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Import Previous Invoices (PDF)';
+  if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Drag & drop PDF invoices here';
   renderImportedList();
   renderTax();
   const parts=[];
-  if(imported) parts.push(`✓ ${imported} imported`);
+  if(imported) parts.push(`✓ ${imported} imported for ${selectedClient.name}`);
   if(skipped) parts.push(`${skipped} already existed`);
   if(failed) parts.push(`⚠ ${failed} could not be read`);
   toast(parts.join(' · '),5000);
