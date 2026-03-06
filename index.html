@@ -1764,7 +1764,7 @@ function closeNavMenu(){const dd=document.getElementById("nav-dropdown");if(dd)d
 document.addEventListener("click",e=>{const wrap=document.querySelector(".nav-more-wrap");if(wrap&&!wrap.contains(e.target))closeNavMenu();});
 
 // ── Backup / Restore ──────────────────────────────────────────────────────────
-function buildBackupData(){return{exportedAt:new Date().toISOString(),version:1,worker,clients,invoiceHistory};}
+function buildBackupData(){return{exportedAt:new Date().toISOString(),version:1,worker,clients,invoiceHistory,importedInvoices};}
 function exportData(){
   const blob=new Blob([JSON.stringify(buildBackupData(),null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);const a=document.createElement("a");
@@ -1908,6 +1908,12 @@ async function loadSyncFile(){
       invoiceHistory.forEach(h=>{invMap[h.id]=h;});
       driveData.invoiceHistory.forEach(h=>{invMap[h.id]=h;});
       mergedHistory=Object.values(invMap).sort((a,b)=>a.date.localeCompare(b.date));
+
+      // Imported PDFs: merge by ID, no duplicates
+      const impMap={};
+      importedInvoices.forEach(h=>{impMap[h.id]=h;});
+      (driveData.importedInvoices||[]).forEach(h=>{impMap[h.id]=h;});
+      importedInvoices=Object.values(impMap);
     }
 
     // Apply merged data
@@ -1920,7 +1926,7 @@ async function loadSyncFile(){
     });
 
     // Save merged result back to localStorage and Drive
-    ls.set("ndis-worker",worker);ls.set("ndis-clients",clients);ls.set("ndis-history",invoiceHistory);
+    ls.set("ndis-worker",worker);ls.set("ndis-clients",clients);ls.set("ndis-history",invoiceHistory);ls.set("ndis-imported-invoices",importedInvoices);
     // Upload merged data back to Drive so both devices stay in sync
     saveSyncFile().catch(e=>console.warn("Merge upload failed:",e));
     return true;
@@ -2170,6 +2176,7 @@ async function processImportedPDFQueue(files){
     }
   }
   if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Drag & drop PDF invoices here';
+  if(imported>0) syncToDrive();
   renderImportedList();
   renderTax();
   renderDashboard();
@@ -2304,6 +2311,7 @@ function renderImportedList(){
 function removeImportedInvoice(id){
   importedInvoices=importedInvoices.filter(i=>i.id!==id);
   ls.set("ndis-imported-invoices",importedInvoices);
+  syncToDrive();
   renderImportedList();
   renderTax();
   toast("Removed imported invoice.");
@@ -2313,6 +2321,7 @@ function clearImportedInvoices(){
   if(!confirm("Remove all imported PDF invoices?")) return;
   importedInvoices=[];
   ls.set("ndis-imported-invoices",importedInvoices);
+  syncToDrive();
   renderImportedList();
   renderTax();
   toast("Cleared imported invoices.");
