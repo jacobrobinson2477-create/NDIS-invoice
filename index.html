@@ -2027,9 +2027,15 @@ function emailInvoice(){
       toast("📄 PDF saved — now attach it in Gmail");
     }catch(e){console.warn("PDF gen failed:",e);toast("⚠ Could not auto-generate PDF — use Print/PDF instead");}
     const gmailUrl=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-    const intentUrl=`intent://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}#Intent;scheme=https;package=com.google.android.gm;end`;
     const isAndroid=/Android/i.test(navigator.userAgent);
-    window.location.href=isAndroid?intentUrl:gmailUrl;
+    if(isAndroid){
+      // Try googlegmail:// deep link first, fall back to web
+      const gmailApp=`googlegmail://co?to=${encodeURIComponent(pmEmail)}&subject=${subject}&body=${body}`;
+      window.location.href=gmailApp;
+      setTimeout(()=>{window.location.href=gmailUrl;},1500);
+    }else{
+      window.location.href=gmailUrl;
+    }
     setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
   },200);
 }
