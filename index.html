@@ -1870,12 +1870,51 @@ function pdfDrop(e){
   document.getElementById('pdf-drop-zone').classList.remove('drag-over');
   const files=[...e.dataTransfer.files].filter(f=>f.type==="application/pdf"||f.name.endsWith('.pdf'));
   if(!files.length){toast("Please drop PDF files only.");return;}
-  files.forEach(processImportedPDF);
+  processImportedPDFQueue(files);
 }
 function pdfFileSelected(e){
   const files=[...e.target.files];
-  files.forEach(processImportedPDF);
-  e.target.value=""; // reset so same file can be re-added
+  processImportedPDFQueue(files);
+  e.target.value="";
+}
+
+async function processImportedPDFQueue(files){
+  if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
+  let imported=0,skipped=0,failed=0;
+  const dropZone=document.getElementById('pdf-drop-zone');
+  if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent=`Processing 0 / ${files.length}…`;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent=`Processing ${i+1} / ${files.length} — ${file.name}`;
+    if(importedInvoices.find(inv=>inv.fileName===file.name)){skipped++;continue;}
+    try{
+      const arrayBuffer=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+      let fullText="";
+      for(let p=1;p<=pdf.numPages;p++){
+        const page=await pdf.getPage(p);
+        const tc=await page.getTextContent();
+        fullText+=tc.items.map(it=>it.str).join(" ")+"\n";
+      }
+      const parsed=parseInvoiceText(fullText,file.name);
+      if(!parsed){failed++;continue;}
+      parsed.invoiceNum=invoiceNumFromFilename(file.name);
+      importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
+      ls.set("ndis-imported-invoices",importedInvoices);
+      imported++;
+    }catch(err){
+      console.error("PDF parse error:",file.name,err);
+      failed++;
+    }
+  }
+  if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Import Previous Invoices (PDF)';
+  renderImportedList();
+  renderTax();
+  const parts=[];
+  if(imported) parts.push(`✓ ${imported} imported`);
+  if(skipped) parts.push(`${skipped} already existed`);
+  if(failed) parts.push(`⚠ ${failed} could not be read`);
+  toast(parts.join(' · '),5000);
 }
 
 function invoiceNumFromFilename(fileName){
@@ -1894,37 +1933,6 @@ function invoiceNumFromFilename(fileName){
   return base.replace(/[^a-zA-Z0-9]/g,"").toUpperCase().slice(0,12);
 }
 
-async function processImportedPDF(file){
-  if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
-  // Duplicate check is filename-only — one file = one record
-  if(importedInvoices.find(i=>i.fileName===file.name)){
-    toast(`"${file.name}" is already imported.`);return;
-  }
-
-  toast(`Reading ${file.name}…`,3000);
-  try{
-    const arrayBuffer=await file.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
-    let fullText="";
-    for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const tc=await page.getTextContent();
-      fullText+=tc.items.map(i=>i.str).join(" ")+"\n";
-    }
-    const parsed=parseInvoiceText(fullText,file.name);
-    if(!parsed){toast(`⚠ Could not read invoice data from "${file.name}". Check it matches the expected format.`,4000);return;}
-    // Always use filename-derived invoice number as the canonical ID
-    parsed.invoiceNum=invoiceNumFromFilename(file.name);
-    importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
-    ls.set("ndis-imported-invoices",importedInvoices);
-    renderImportedList();
-    renderTax();
-    toast(`✓ Imported ${parsed.invoiceNum} — ${aud(parsed.total)}`);
-  }catch(err){
-    console.error("PDF parse error:",err);
-    toast(`⚠ Error reading "${file.name}": ${err.message}`,4000);
-  }
-}
 
 function parseInvoiceText(text, fileName){
   // Normalise whitespace
