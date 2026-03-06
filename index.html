@@ -2034,41 +2034,73 @@ function emailInvoice(){
   setTimeout(()=>{
     window.print();
     document.title=prevTitle;
-    // After print dialog closes, handle email
-    setTimeout(()=>{
-      if(isMobile){
-        showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
-      }else{
-        window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-        setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
-      }
-    },500);
+    // After print dialog closes, open email
+    setTimeout(()=>openEmailCompose(pmEmail,subject,body,subjectRaw,bodyRaw,entryId,invoiceNum),500);
   },150);
 }
-function showEmailModal(pmEmail,subject,body,entryId,invoiceNum){
+
+function openEmailCompose(pmEmail,subject,body,subjectRaw,bodyRaw,entryId,invoiceNum){
+  // Try mailto: first — works on any device that has a mail app configured
+  // (Gmail app, Apple Mail, Outlook, etc). Falls back to Gmail web on desktop.
+  const mailtoUrl=`mailto:${encodeURIComponent(pmEmail)}?subject=${subject}&body=${body}`;
+  // mailto: body has a 2000-char practical limit in many clients; if it exceeds
+  // that, or there is no email address, fall straight to the copy modal.
+  const bodyLen=decodeURIComponent(body).length;
+  if(pmEmail&&bodyLen<1800){
+    // Try to open mailto — then show sent-confirm after a short delay
+    // We can't detect if it succeeded, so we show it regardless
+    try{
+      window.location.href=mailtoUrl;
+      setTimeout(()=>showSentConfirm(entryId,invoiceNum),1200);
+    }catch(e){
+      showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
+    }
+  }else if(pmEmail&&/Macintosh|Windows/i.test(navigator.userAgent)&&!/iPhone|iPad/i.test(navigator.userAgent)){
+    // Desktop fallback: Gmail web compose
+    window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+    setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
+  }else{
+    // Last resort: copy modal
+    showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
+  }
+}
+function showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum){
   const existing=document.getElementById("email-details-modal");if(existing)existing.remove();
-  const full=`To: ${pmEmail}\nSubject: ${subject}\n\n${body}`;
+  const subject=encodeURIComponent(subjectRaw);
+  const body=encodeURIComponent(bodyRaw);
+  const mailtoUrl=pmEmail?`mailto:${encodeURIComponent(pmEmail)}?subject=${subject}&body=${body}`:"";
   const modal=document.createElement("div");
   modal.id="email-details-modal";
   modal.style.cssText="position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;padding:0;";
   modal.innerHTML=`
-    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:80vh;overflow-y:auto;">
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:85vh;overflow-y:auto;">
       <div style="font-size:16px;font-weight:700;margin-bottom:4px;">📧 Email Invoice</div>
-      <div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Tap Copy, then paste into a new Gmail compose</div>
-      <div id="email-full-text" style="background:#f3f4f6;border-radius:10px;padding:12px;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;max-height:200px;overflow-y:auto;"></div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:14px;">${pmEmail?"Tap <strong>Open in Mail</strong> to compose, or copy the details below.":"No plan manager email saved — copy the details below."}</div>
+      ${pmEmail?`<a id="mailto-btn" href="${mailtoUrl}" style="display:block;text-align:center;padding:13px;background:#059669;color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:10px;">✉️ Open in Mail App</a>`:""}
+      <div style="background:#f3f4f6;border-radius:10px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">To</div>
+        <div style="font-size:13px;color:#111;margin-bottom:10px;">${pmEmail||"—"}</div>
+        <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Subject</div>
+        <div style="font-size:13px;color:#111;margin-bottom:10px;">${subjectRaw}</div>
+        <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Message</div>
+        <div id="email-body-text" style="font-size:12px;color:#333;white-space:pre-wrap;line-height:1.5;"></div>
+      </div>
       <div style="display:flex;gap:10px;">
-        <button id="copy-email-btn" style="flex:1;padding:13px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;font-weight:700;background:#fff;cursor:pointer;">📋 Copy All</button>
-        <button id="mark-sent-btn" style="flex:1;padding:13px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">✅ Mark Sent</button>
+        <button id="copy-email-btn" style="flex:1;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;">📋 Copy Message</button>
+        <button id="mark-sent-btn" style="flex:1;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ Mark Sent</button>
       </div>
       <button id="cancel-email-btn" style="width:100%;margin-top:10px;padding:12px;background:none;border:none;color:#6b7280;font-size:14px;cursor:pointer;">Cancel</button>
     </div>`;
   document.body.appendChild(modal);
-  document.getElementById("email-full-text").textContent=full;
+  document.getElementById("email-body-text").textContent=bodyRaw;
+  // Open in mail taps should also show sent confirm
+  const mb=document.getElementById("mailto-btn");
+  if(mb)mb.addEventListener("click",()=>{setTimeout(()=>{document.getElementById("email-details-modal")?.remove();showSentConfirm(entryId,invoiceNum);},800);});
   document.getElementById("copy-email-btn").onclick=()=>{
-    navigator.clipboard.writeText(full).catch(()=>{});
+    navigator.clipboard.writeText(bodyRaw).catch(()=>{});
     const btn=document.getElementById("copy-email-btn");
-    btn.textContent="✓ Copied!";btn.style.background="#059669";btn.style.color="#fff";
-    setTimeout(()=>{btn.textContent="📋 Copy All";btn.style.background="";btn.style.color="";},2000);
+    btn.textContent="✓ Copied!";btn.style.background="#059669";btn.style.color="#fff";btn.style.borderColor="#059669";
+    setTimeout(()=>{btn.textContent="📋 Copy Message";btn.style.background="";btn.style.color="";btn.style.borderColor="";},2500);
   };
   document.getElementById("mark-sent-btn").onclick=()=>{
     document.getElementById("email-details-modal").remove();
