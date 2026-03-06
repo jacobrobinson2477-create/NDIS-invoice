@@ -960,7 +960,7 @@ function renderDashboard(){
   // ── Combine all invoices (history + imported PDFs) ──────────────────────
   const allInv=[
     ...invoiceHistory.map(h=>({...h, pm:clients.find(c=>c.id===h.clientId)?.pm?.org||"Unknown"})),
-    ...importedInvoices.map(h=>({...h, pm:h.pmOrg||"Imported (PDF)", clientId:h.clientId||"__imported__"}))
+    ...importedInvoices.map(h=>{const cl=clients.find(c=>c.id===h.clientId);return {...h, pm:cl?.pm?.org||h.pmOrg||"Unknown Plan Manager", clientId:h.clientId||"__imported__"};})
   ];
   const paid=allInv.filter(h=>h.payStatus==="paid");
   const pending=allInv.filter(h=>h.payStatus!=="paid");
@@ -1944,7 +1944,7 @@ function renderTax(){
   let list=invoiceHistory.filter(h=>getFY(h.date)===fy);if(filterClient)list=list.filter(h=>h.clientId===filterClient);
   // Add imported invoices (always paid, no clientId filter since they don't have clientId)
   const impList=importedInvoices.filter(i=>getFY(i.date)===fy).map(i=>({
-    ...i, clientId:"__imported__", sessions:[], payStatus:"paid"
+    ...i, sessions:[], payStatus:"paid"
   }));
   // If client filter active, only include imported if client name matches
   const filteredImp=filterClient?[]:impList;
@@ -1957,8 +1957,7 @@ function renderTax(){
   const totalPaid=paidList.reduce((s,h)=>s+h.total,0);const totalUnpaid=unpaidList.reduce((s,h)=>s+h.total,0);
   const byPM={};combined.forEach(h=>{
     let pm="Unknown Plan Manager";
-    if(h.clientId!=="__imported__"){const cl=clients.find(x=>x.id===h.clientId);pm=cl?.pm?.org||"Unknown Plan Manager";}
-    else{pm=h.pmOrg||"Imported (PDF)";}
+    {const cl=clients.find(x=>x.id===h.clientId);pm=cl?.pm?.org||h.pmOrg||"Unknown Plan Manager";}
     if(!byPM[pm])byPM[pm]={total:0,invoices:0,paid:0,unpaid:0};byPM[pm].total+=h.total;byPM[pm].invoices++;if(h.payStatus==="paid")byPM[pm].paid+=h.total;else byPM[pm].unpaid+=h.total;});
   body.innerHTML=`
     <div class="report-grid" style="margin-bottom:16px;">
@@ -2143,23 +2142,30 @@ function renderImportedList(){
   const el=document.getElementById("imported-inv-list");
   if(!el) return;
   if(!importedInvoices.length){el.innerHTML="";return;}
+  const orphans=importedInvoices.filter(i=>!clients.find(c=>c.id===i.clientId));
   el.innerHTML=`
     <div class="card" style="margin-bottom:14px;">
       <div class="card-hd">
-        <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📂</span> Imported PDF Invoices</span>
+        <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📂</span> Imported PDF Invoices (${importedInvoices.length})${orphans.length?` <span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;">${orphans.length} unlinked</span>`:""}</span>
         <button class="btn btn-ghost btn-sm" onclick="clearImportedInvoices()">🗑 Clear All</button>
       </div>
+      ${orphans.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:10px;">⚠️ <strong>${orphans.length} invoice${orphans.length>1?"s":""}</strong> couldn't be matched to a client — they won't appear in plan manager totals. Remove them and re-import using the client selector above.</div>`:""}
       <div style="display:flex;flex-direction:column;gap:6px;">
-        ${importedInvoices.map(inv=>`
-          <div class="imported-inv-row">
-            <span class="imported-badge">PDF</span>
+        ${importedInvoices.map(inv=>{
+          const cl=clients.find(c=>c.id===inv.clientId);
+          const pm=cl?.pm?.org||inv.pmOrg||"";
+          const isOrphan=!cl;
+          return `
+          <div class="imported-inv-row" style="${isOrphan?"border-color:#fca5a5;background:#fff7f7;":""}">
+            <span class="imported-badge" style="${isOrphan?"background:#fee2e2;color:#991b1b;border-color:#fca5a5;":""}">PDF</span>
             <div>
-              <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(inv.invoiceNum)} — ${esc(inv.clientName)}</div>
-              <div class="imp-parse-msg">${esc(inv.fileName)} · ${fmtShort(inv.date)}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(inv.invoiceNum)} — ${esc(inv.clientName)}${isOrphan?' <span style="font-size:10px;color:#dc2626;font-weight:500;">⚠ unlinked</span>':""}</div>
+              <div class="imp-parse-msg">${pm?`🏢 ${esc(pm)} · `:""} ${fmtShort(inv.date)}</div>
             </div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--green-d);">${aud(inv.total)}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:${isOrphan?"#dc2626":"var(--green-d)"};">${aud(inv.total)}</div>
             <button class="btn btn-ghost btn-sm" onclick="removeImportedInvoice('${inv.id}')" title="Remove">✕</button>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
       </div>
     </div>`;
 }
@@ -2190,7 +2196,7 @@ function exportTaxCSV(fy){
     const cl=clients.find(x=>x.id===h.clientId);
     const hrs=(h.sessions||[]).filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0);
     const km=(h.sessions||[]).filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0);
-    const pm=h.source==="pdf"?(h.pmOrg||"Imported (PDF)"):(cl?.pm?.org||"");
+    const pm=cl?.pm?.org||h.pmOrg||"Unknown Plan Manager";
     return[h.invoiceNum,h.date,h.clientName,pm,hrs,km,(h.subtotal||h.total).toFixed(2),(h.gst||0).toFixed(2),h.total.toFixed(2),h.payStatus||"paid",h.source==="pdf"?"PDF Import":"App",h.payDate||"",h.remittanceRef||""];
   })];
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
