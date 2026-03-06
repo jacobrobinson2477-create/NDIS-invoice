@@ -1878,10 +1878,28 @@ function pdfFileSelected(e){
   e.target.value=""; // reset so same file can be re-added
 }
 
+function invoiceNumFromFilename(fileName){
+  // e.g. "David_Murphy__-_44.pdf" → "DM44"
+  // Strip extension
+  const base=fileName.replace(/\.pdf$/i,"").replace(/\.PDF$/,"");
+  // Extract all words (split on spaces, underscores, dashes)
+  const words=base.split(/[\s_\-]+/).filter(w=>w.length>0);
+  // Grab initials from word parts that are purely letters
+  const initials=words.filter(w=>/^[a-zA-Z]+$/.test(w)).map(w=>w[0].toUpperCase()).join("");
+  // Grab the trailing number(s)
+  const nums=words.filter(w=>/^\d+$/.test(w));
+  const num=nums.length?nums[nums.length-1]:"";
+  if(initials&&num) return initials+num;
+  // Fallback: just use the base name cleaned up
+  return base.replace(/[^a-zA-Z0-9]/g,"").toUpperCase().slice(0,12);
+}
+
 async function processImportedPDF(file){
   if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
-  const existingName=importedInvoices.find(i=>i.fileName===file.name);
-  if(existingName){toast(`"${file.name}" already imported.`);return;}
+  // Duplicate check is filename-only — one file = one record
+  if(importedInvoices.find(i=>i.fileName===file.name)){
+    toast(`"${file.name}" is already imported.`);return;
+  }
 
   toast(`Reading ${file.name}…`,3000);
   try{
@@ -1895,9 +1913,8 @@ async function processImportedPDF(file){
     }
     const parsed=parseInvoiceText(fullText,file.name);
     if(!parsed){toast(`⚠ Could not read invoice data from "${file.name}". Check it matches the expected format.`,4000);return;}
-    // Check for duplicate invoice number
-    if(importedInvoices.find(i=>i.invoiceNum===parsed.invoiceNum)){
-      toast(`Invoice ${parsed.invoiceNum} is already imported.`);return;}
+    // Always use filename-derived invoice number as the canonical ID
+    parsed.invoiceNum=invoiceNumFromFilename(file.name);
     importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
     ls.set("ndis-imported-invoices",importedInvoices);
     renderImportedList();
