@@ -2026,7 +2026,7 @@ function emailInvoice(){
       pdf.addImage(canvas.toDataURL("image/png"),"PNG",0,0,w,h);pdf.save(`${invoiceNum}.pdf`);
       toast("📄 PDF saved — now attach it in Gmail");
     }catch(e){console.warn("PDF gen failed:",e);toast("⚠ Could not auto-generate PDF — use Print/PDF instead");}
-    window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+    window.location.href=`mailto:${encodeURIComponent(pmEmail)}?subject=${subject}&body=${body}`;
     setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
   },200);
 }
