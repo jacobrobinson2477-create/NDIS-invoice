@@ -1360,12 +1360,15 @@ function goInvoice(){
   const userInvNum=document.getElementById("f-invnum")?.value?.trim()||peekNextNum(activeId);
   const cl=clients.find(x=>x.id===activeId)||{};
   const invNotes=document.getElementById("f-invnotes")?.value?.trim()||"";
+  // Use the most recent session date as the invoice date (not today's generation date)
+  const _sessionDates=sessions.map(s=>s.date).filter(Boolean).sort();
+  const invoiceDate=_sessionDates.length?_sessionDates[_sessionDates.length-1]:new Date().toISOString().slice(0,10);
   // Save to history
   const histEntry={
     id:uid(),clientId:activeId,clientName:cl.name||"",
-    invoiceNum:userInvNum,date:new Date().toISOString().slice(0,10),
+    invoiceNum:userInvNum,date:invoiceDate,
     subtotal,gst:gstAmt,total,useGst,sessions:[...sessions],notes:invNotes,
-    paid:null, paidDate:null  // null=unknown, true=paid, false=unpaid
+    payStatus:"unpaid"
   };
   invoiceHistory=[histEntry,...invoiceHistory];
   ls.set("ndis-history",invoiceHistory);
@@ -1461,7 +1464,7 @@ function buildInvoice(entry){
               <td class="inv-th-hours">Total hours</td>
               <td class="inv-hours-val">${totalHours>0?totalHours:""}</td>
               <td></td>
-              <td style="text-align:right;font-size:12px;font-weight:600;padding:7px 6px;">${entry.useGst?"Subtotal":"Subtotal"}</td>
+              <td style="text-align:right;font-size:12px;font-weight:600;padding:7px 6px;">Subtotal</td>
               <td class="amt">${aud(entry.subtotal)}</td>
             </tr>
             ${gstRows}
@@ -1599,7 +1602,7 @@ function checkPaymentReminders(){
   const modal=document.getElementById("pay-remind-modal");if(modal)modal.style.display="flex";
 }
 function remindMarkPaid(id){
-  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-AU")}:h);
+  invoiceHistory=invoiceHistory.map(h=>h.id===id?{...h,payStatus:"paid",payDate:new Date().toLocaleDateString("en-CA")}:h);
   ls.set("ndis-history",invoiceHistory);
   const el=document.querySelector('[onclick="remindMarkPaid(\''+id+'\')"]');if(el)el.closest("div[style]")?.remove();
   toast("💰 Marked as paid ✓");
@@ -1780,7 +1783,11 @@ function handleImportFile(input){
       const data=JSON.parse(e.target.result);
       if(!data.worker||!data.clients||!data.invoiceHistory){alert("This doesn't look like a valid NDIS Invoice backup file.");return;}
       if(!confirm(`Replace all data with backup from ${data.exportedAt?new Date(data.exportedAt).toLocaleDateString("en-AU"):"unknown date"}?\n\nAre you sure?`))return;
-      worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1},...data.worker};
+      // Whitelist worker fields to prevent unexpected keys / prototype pollution
+      const WORKER_KEYS=["name","title","abn","email","phone","address","bankName","bsb","account","payableName","prefix","nextNum","onboarded","clientCounters"];
+      const safeWorker={name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1};
+      WORKER_KEYS.forEach(k=>{if(Object.prototype.hasOwnProperty.call(data.worker,k))safeWorker[k]=data.worker[k];});
+      worker=safeWorker;
       clients=data.clients||[];invoiceHistory=data.invoiceHistory||[];
       ls.set("ndis-worker",worker);ls.set("ndis-clients",clients);ls.set("ndis-history",invoiceHistory);
       renderSidebar();try{populateReportMonths();}catch(e){}
@@ -2009,7 +2016,7 @@ function printInvoice(){
   const prevTitle=document.title;document.title=invNum;window.print();setTimeout(()=>{document.title=prevTitle;},1000);
 }
 function emailInvoice(){
-  const entry=invoiceHistory[invoiceHistory.length-1];if(!entry){toast("No invoice to email");return;}
+  const entry=invoiceHistory[0];if(!entry){toast("No invoice to email");return;}
   const cl=clients.find(x=>x.id===entry.clientId)||{};
   const pmEmail=cl.pm?.email||"";const invoiceNum=entry.invoiceNum||"Invoice";const workerName=worker.name||"Support Worker";
   const total=aud(entry.total||0);
@@ -2173,6 +2180,8 @@ function pdfFileSelected(e){
 
 async function processImportedPDFQueue(files){
   if(typeof pdfjsLib==='undefined'){toast("PDF reader not loaded yet — try again in a moment.");return;}
+  // Set worker URL here (not just at boot) so it works even if pdf.js loaded after page init
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   // Get the selected client
   const clientSel=document.getElementById("pdf-import-client");
   const selectedClientId=clientSel?clientSel.value:"";
@@ -2204,10 +2213,8 @@ async function processImportedPDFQueue(files){
       parsed.clientId=selectedClientId;
       parsed.pmOrg=selectedClient.pm?.org||parsed.pmOrg||"";
       // Invoice number: client initials + number extracted from filename
-      const numFromFile=(file.name.match(/(\d+)(?:\.[^.]+)?$/)||[])[1]||"";
-      parsed.invoiceNum=clientInitials+(numFromFile||"");
+      parsed.invoiceNum=invoiceNumFromFilename(file.name,clientInitials);
       importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
-      ls.set("ndis-imported-invoices",importedInvoices);
       imported++;
     }catch(err){
       console.error("PDF parse error:",file.name,err);
@@ -2215,7 +2222,7 @@ async function processImportedPDFQueue(files){
     }
   }
   if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Drag & drop PDF invoices here';
-  if(imported>0) syncToDrive();
+  if(imported>0){ls.set("ndis-imported-invoices",importedInvoices);syncToDrive();}
   renderImportedList();
   renderTax();
   renderDashboard();
@@ -2226,17 +2233,17 @@ async function processImportedPDFQueue(files){
   toast(parts.join(' · '),5000);
 }
 
-function invoiceNumFromFilename(fileName){
+function invoiceNumFromFilename(fileName, clientInitials){
   // e.g. "David_Murphy__-_44.pdf" → "DM44"
-  // e.g. "Jay-dee_Invoice_-_69.pdf" → "JH69" (uses first word initial only for hyphenated names)
+  // If clientInitials provided (from explicitly selected client), use those instead of inferring from filename
   const base=fileName.replace(/\.pdf$/i,"");
-  // Words to skip — generic words that are not name parts
-  const SKIP=new Set(["invoice","inv","the","for","a","an","and","pdf"]);
   const parts=base.split(/[\s_]+/).filter(p=>p.length>0);
   // Trailing number: last purely numeric segment
   const nums=parts.filter(p=>/^\d+$/.test(p));
   const num=nums.length?nums[nums.length-1]:"";
-  // Name words: non-numeric, non-skip parts — take only the FIRST token per hyphenated segment
+  if(clientInitials&&num) return clientInitials+num;
+  // Fallback: infer initials from filename words
+  const SKIP=new Set(["invoice","inv","the","for","a","an","and","pdf"]);
   const nameWords=parts.filter(p=>!/^\d+$/.test(p)).map(p=>p.split(/\-/)[0]).filter(w=>!SKIP.has(w.toLowerCase())&&/^[a-zA-Z]/.test(w));
   const initials=nameWords.map(w=>w[0].toUpperCase()).join("");
   if(initials&&num) return initials+num;
