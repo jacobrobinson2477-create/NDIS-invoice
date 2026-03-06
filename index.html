@@ -625,8 +625,8 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
           <div class="ph-title" id="inv-num-head">Invoice</div>
         </div>
         <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-primary" onclick="printInvoice()">🖨 Print / PDF</button>
-          <button class="btn btn-soft" onclick="emailInvoice()">📧 Email Invoice</button>
+          <button class="btn btn-primary" onclick="printInvoice()">🖨 Save as PDF</button>
+          <button class="btn btn-soft" onclick="emailInvoice()">📧 Email</button>
           <button class="btn btn-ghost" onclick="goPage('services')">← Edit</button>
           <button class="btn btn-ghost" onclick="goPage('dashboard')">Dashboard</button>
         </div>
@@ -2025,18 +2025,8 @@ function emailInvoice(){
   const subject=encodeURIComponent(subjectRaw);
   const body=encodeURIComponent(bodyRaw);
   const entryId=entry.id;
-  const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-  // Use browser native print for PDF — far better quality than html2canvas.
-  // User saves it as PDF via the print dialog (Save as PDF), then we open email.
-  const prevTitle=document.title;
-  document.title=invoiceNum;
-  toast("\u{1F5A8} Opening print dialog — save as PDF, then email will open");
-  setTimeout(()=>{
-    window.print();
-    document.title=prevTitle;
-    // After print dialog closes, open email
-    setTimeout(()=>openEmailCompose(pmEmail,subject,body,subjectRaw,bodyRaw,entryId,invoiceNum),500);
-  },150);
+  // Email is completely separate from print — go straight to compose
+  openEmailCompose(pmEmail,subject,body,subjectRaw,bodyRaw,entryId,invoiceNum);
 }
 
 function openEmailCompose(pmEmail,subject,body,subjectRaw,bodyRaw,entryId,invoiceNum){
