@@ -166,15 +166,32 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .gst-line{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:3px 0;}
 .gst-line.total{font-weight:700;font-size:14px;color:var(--green-xd);border-top:1px solid #a7f3d0;margin-top:4px;padding-top:6px;}
 
-/* ── DASHBOARD TILES ── */
-.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
-.ctile{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+/* ── DASHBOARD ── */
+.dash-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.dash-stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);}
+.dash-stat-val{font-size:22px;font-weight:800;color:var(--green-d);letter-spacing:-.5px;}
+.dash-stat-lbl{font-size:11px;color:var(--sub);margin-top:3px;font-weight:500;}
+.dash-pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;}
+.dash-pm-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);}
+.dash-pm-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.dash-pm-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--sub);padding:3px 0;}
+.dash-pm-row strong{color:var(--text);font-weight:600;}
+.dash-pm-total{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;color:var(--green-d);padding-top:8px;margin-top:6px;border-top:1.5px solid var(--border2);}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+.ctile{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
 .ctile:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border2);}
-.ctile-av{width:46px;height:46px;border-radius:12px;background:var(--sky);color:var(--green-d);font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:12px;}
-.ctile-name{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px;margin-bottom:3px;}
-.ctile-ndis{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);margin-bottom:4px;}
-.ctile-pm{font-size:12px;color:var(--sub);margin-bottom:14px;line-height:1.4;}
-.ctile-actions{display:flex;flex-direction:column;gap:6px;}
+.ctile-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.ctile-av{width:40px;height:40px;border-radius:10px;background:var(--sky);color:var(--green-d);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ctile-name{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.2px;}
+.ctile-ndis{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);}
+.ctile-pm{font-size:11px;color:var(--sub);margin-bottom:10px;}
+.ctile-amounts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+.ctile-amt{background:var(--bg);border-radius:8px;padding:8px 10px;}
+.ctile-amt-val{font-size:14px;font-weight:700;color:var(--green-d);}
+.ctile-amt-lbl{font-size:10px;color:var(--sub);margin-top:1px;}
+.ctile-amt.pending{background:#fffbeb;}
+.ctile-amt.pending .ctile-amt-val{color:#92400e;}
+.ctile-actions{display:flex;gap:6px;flex-wrap:wrap;}
 
 /* ── EMPTY STATE ── */
 .empty{text-align:center;padding:56px 24px;background:#fff;border-radius:var(--radius-lg);border:1.5px dashed var(--border2);box-shadow:var(--shadow);}
@@ -939,22 +956,91 @@ function renderDashboard(){
     body.innerHTML=`<div class="empty"><div class="empty-icon">🧑‍🤝‍🧑</div><div class="empty-title">No clients yet</div><div class="empty-sub">Add your first NDIS participant to start creating invoices.</div><button class="btn btn-primary" onclick="newClient()">＋ Add First Client</button></div>`;
     return;
   }
-  body.innerHTML=`<div class="dash-grid">${clients.map(c=>{
-    const lastInv=invoiceHistory.filter(h=>h.clientId===c.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-    return `<div class="ctile">
-      <div class="ctile-av">${esc(c.name[0].toUpperCase())}</div>
-      <div class="ctile-name">${esc(c.name)}</div>
-      <div class="ctile-ndis">NDIS ${esc(c.ndisNumber||"—")}</div>
-      <div class="ctile-pm">${esc(c.pm?.org||"No plan manager set")}${lastInv?`<br/><span style="font-size:11px;color:var(--green-d);">Last: ${esc(lastInv.invoiceNum)} · ${aud(lastInv.total)}</span>`:""}</div>
-      <div class="ctile-actions">
-        <button class="btn btn-primary btn-sm" onclick="openClient('${c.id}')">📄 New Invoice</button>
-        <button class="btn btn-soft btn-sm" onclick="repeatLast('${c.id}')">🔁 Repeat Last</button>
-        <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">✏️ Edit Client</button>
-      </div>
-    </div>`;
-  }).join("")}</div>`;
-}
 
+  // ── Combine all invoices (history + imported PDFs) ──────────────────────
+  const allInv=[
+    ...invoiceHistory.map(h=>({...h, pm:clients.find(c=>c.id===h.clientId)?.pm?.org||"Unknown"})),
+    ...importedInvoices.map(h=>({...h, pm:h.pmOrg||"Imported (PDF)", clientId:h.clientId||"__imported__"}))
+  ];
+  const paid=allInv.filter(h=>h.payStatus==="paid");
+  const pending=allInv.filter(h=>h.payStatus!=="paid");
+
+  // ── Overall summary stats ────────────────────────────────────────────────
+  const totalPaid=paid.reduce((s,h)=>s+(h.total||0),0);
+  const totalPending=pending.reduce((s,h)=>s+(h.total||0),0);
+  const totalGst=paid.reduce((s,h)=>s+(h.gst||0),0);
+  const totalInvoices=allInv.length;
+
+  // ── Per plan manager breakdown ───────────────────────────────────────────
+  const pmMap={};
+  paid.forEach(h=>{
+    const pm=h.pm||"Unknown";
+    if(!pmMap[pm]) pmMap[pm]={total:0,clients:{}};
+    pmMap[pm].total+=h.total||0;
+    const cname=h.clientName||clients.find(c=>c.id===h.clientId)?.name||"Unknown";
+    if(!pmMap[pm].clients[cname]) pmMap[pm].clients[cname]=0;
+    pmMap[pm].clients[cname]+=h.total||0;
+  });
+
+  // ── Per client summary ───────────────────────────────────────────────────
+  const clientSummary=clients.map(c=>{
+    const hist=invoiceHistory.filter(h=>h.clientId===c.id);
+    const imp=importedInvoices.filter(h=>h.clientId===c.id);
+    const all=[...hist,...imp];
+    const paidAmt=all.filter(h=>h.payStatus==="paid").reduce((s,h)=>s+(h.total||0),0);
+    const pendingAmt=all.filter(h=>h.payStatus!=="paid").reduce((s,h)=>s+(h.total||0),0);
+    const lastInv=[...hist,...imp].sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const invCount=all.length;
+    return {...c, paidAmt, pendingAmt, lastInv, invCount};
+  }).sort((a,b)=>b.paidAmt-a.paidAmt);
+
+  const summaryHTML=`
+    <div class="dash-summary">
+      <div class="dash-stat"><div class="dash-stat-val">${aud(totalPaid)}</div><div class="dash-stat-lbl">Total Received</div></div>
+      ${totalPending>0?`<div class="dash-stat"><div class="dash-stat-val" style="color:#92400e;">${aud(totalPending)}</div><div class="dash-stat-lbl">Awaiting Payment</div></div>`:""}
+      ${totalGst>0?`<div class="dash-stat"><div class="dash-stat-val">${aud(totalGst)}</div><div class="dash-stat-lbl">GST Collected</div></div>`:""}
+      <div class="dash-stat"><div class="dash-stat-val">${totalInvoices}</div><div class="dash-stat-lbl">Total Invoices</div></div>
+      <div class="dash-stat"><div class="dash-stat-val">${clients.length}</div><div class="dash-stat-lbl">Participants</div></div>
+    </div>`;
+
+  const pmKeys=Object.keys(pmMap).sort((a,b)=>pmMap[b].total-pmMap[a].total);
+  const pmHTML=pmKeys.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Paid by Plan Manager</div>
+    <div class="dash-pm-grid">${pmKeys.map(pm=>{
+      const rows=Object.entries(pmMap[pm].clients).sort((a,b)=>b[1]-a[1]);
+      return `<div class="dash-pm-card">
+        <div class="dash-pm-name">🏢 ${esc(pm)}</div>
+        ${rows.map(([name,amt])=>`<div class="dash-pm-row"><span>${esc(name)}</span><strong>${aud(amt)}</strong></div>`).join("")}
+        <div class="dash-pm-total"><span>Total</span><span>${aud(pmMap[pm].total)}</span></div>
+      </div>`;
+    }).join("")}</div>`:"";
+
+  const tilesHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">Participants</div>
+    <div class="dash-grid">${clientSummary.map(c=>`
+      <div class="ctile">
+        <div class="ctile-top">
+          <div class="ctile-av">${esc(c.name[0].toUpperCase())}</div>
+          <div>
+            <div class="ctile-name">${esc(c.name)}</div>
+            <div class="ctile-ndis">NDIS ${esc(c.ndisNumber||"—")}</div>
+          </div>
+        </div>
+        <div class="ctile-pm">🏢 ${esc(c.pm?.org||"No plan manager set")} · ${c.invCount} invoice${c.invCount!==1?"s":""}</div>
+        <div class="ctile-amounts">
+          <div class="ctile-amt"><div class="ctile-amt-val">${aud(c.paidAmt)}</div><div class="ctile-amt-lbl">Received</div></div>
+          ${c.pendingAmt>0?`<div class="ctile-amt pending"><div class="ctile-amt-val">${aud(c.pendingAmt)}</div><div class="ctile-amt-lbl">Pending</div></div>`:`<div class="ctile-amt"><div class="ctile-amt-val" style="color:var(--sub);font-size:12px;">✓ all paid</div><div class="ctile-amt-lbl">Status</div></div>`}
+        </div>
+        ${c.lastInv?`<div style="font-size:11px;color:var(--faint);margin-bottom:10px;">Last: ${esc(c.lastInv.invoiceNum||"")} · ${esc(c.lastInv.date||"")}</div>`:""}
+        <div class="ctile-actions">
+          <button class="btn btn-primary btn-sm" onclick="openClient('${c.id}')">📄 New Invoice</button>
+          <button class="btn btn-soft btn-sm" onclick="repeatLast('${c.id}')">🔁 Repeat Last</button>
+          <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">✏️ Edit</button>
+        </div>
+      </div>`).join("")}</div>`;
+
+  body.innerHTML=summaryHTML+pmHTML+tilesHTML;
+}
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function renderSidebar(){
   const ciList=document.getElementById("ci-list");
@@ -1956,6 +2042,7 @@ async function processImportedPDFQueue(files){
   if(dropZone) dropZone.querySelector('.pdf-drop-title').textContent='Drag & drop PDF invoices here';
   renderImportedList();
   renderTax();
+  renderDashboard();
   const parts=[];
   if(imported) parts.push(`✓ ${imported} imported for ${selectedClient.name}`);
   if(skipped) parts.push(`${skipped} already existed`);
