@@ -705,10 +705,10 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="pdfFileSelected(event)"/>
       </div>
 
+      <div id="tax-body"></div>
+
       <!-- Imported invoices list (shown when there are imports) -->
       <div id="imported-inv-list"></div>
-
-      <div id="tax-body"></div>
     </div>
 
   </div><!-- /main -->
@@ -2174,8 +2174,8 @@ function renderTax(){
   const combined=[...list,...filteredImp];
   if(!combined.length){body.innerHTML=`<div class="empty" style="padding:40px;"><div class="empty-icon">🧾</div><div class="empty-title">No invoices for FY ${esc(fy)}</div><div class="empty-sub">Invoices you generate will appear here for tax reporting. You can also import old PDF invoices above.</div></div>`;return;}
   const totalIncome=combined.reduce((s,h)=>s+h.total,0);const totalGst=combined.reduce((s,h)=>s+(h.gst||0),0);
-  const totalKm=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,0),0);
-  const totalHours=list.reduce((s,h)=>s+h.sessions.filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,0),0);
+  const totalKm=combined.reduce((s,h)=>(h.sessions||[]).filter(s=>s.unit==="km").reduce((a,b)=>a+b.qty,s),0);
+  const totalHours=combined.reduce((s,h)=>(h.sessions||[]).filter(s=>s.unit==="hr").reduce((a,b)=>a+b.qty,s),0);
   const paidList=combined.filter(h=>h.payStatus==="paid");const unpaidList=combined.filter(h=>h.payStatus!=="paid");
   const totalPaid=paidList.reduce((s,h)=>s+h.total,0);const totalUnpaid=unpaidList.reduce((s,h)=>s+h.total,0);
   const byPM={};combined.forEach(h=>{
