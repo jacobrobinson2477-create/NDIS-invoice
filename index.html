@@ -1861,26 +1861,68 @@ async function saveSyncFile(){
 async function loadSyncFile(){
   try{
     const token=await ensureToken();
-    // Find sync file
     const search=await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${SYNC_FILENAME}'+and+trashed%3Dfalse&fields=files(id,name,modifiedTime)`,{headers:{Authorization:"Bearer "+token}});
     const sd=await search.json();
-    if(!sd.files||sd.files.length===0)return false; // No sync file yet
+    if(!sd.files||sd.files.length===0)return false; // No sync file yet — this is first device
     syncFileId=sd.files[0].id;
-    // Download it
     const dl=await fetch(`https://www.googleapis.com/drive/v3/files/${syncFileId}?alt=media`,{headers:{Authorization:"Bearer "+token}});
     if(!dl.ok)return false;
-    const data=await dl.json();
-    if(!data.worker||!data.clients||!data.invoiceHistory)return false;
-    // Merge Drive data into local — Drive wins for cross-device sync
-    worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1,gst:false},...data.worker};
-    clients=data.clients||[];
-    invoiceHistory=(data.invoiceHistory||[]).map(inv=>{
+    const driveData=await dl.json();
+    if(!driveData.worker||!driveData.clients||!driveData.invoiceHistory)return false;
+
+    // ── Smart merge: keep whichever has more data ──────────────────────────
+    const driveInvCount=driveData.invoiceHistory.length;
+    const driveClientCount=driveData.clients.length;
+    const localInvCount=invoiceHistory.length;
+    const localClientCount=clients.length;
+    const driveScore=driveInvCount+driveClientCount;
+    const localScore=localInvCount+localClientCount;
+
+    let mergedWorker, mergedClients, mergedHistory;
+
+    if(localScore===0){
+      // Local is empty — just load Drive data
+      mergedWorker=driveData.worker;
+      mergedClients=driveData.clients;
+      mergedHistory=driveData.invoiceHistory;
+    } else if(driveScore===0){
+      // Drive is empty — keep local, upload it
+      mergedWorker=worker;
+      mergedClients=clients;
+      mergedHistory=invoiceHistory;
+    } else {
+      // Both have data — merge by combining unique records
+      // Worker: use whichever has more fields filled in
+      const driveWorkerFields=Object.values(driveData.worker).filter(v=>v&&v!=="").length;
+      const localWorkerFields=Object.values(worker).filter(v=>v&&v!=="").length;
+      mergedWorker=driveWorkerFields>=localWorkerFields?driveData.worker:worker;
+
+      // Clients: merge by ID, Drive wins for conflicts
+      const clientMap={};
+      clients.forEach(c=>{clientMap[c.id]=c;});
+      driveData.clients.forEach(c=>{clientMap[c.id]=c;}); // Drive overwrites local for same ID
+      mergedClients=Object.values(clientMap);
+
+      // Invoices: merge by ID, no duplicates
+      const invMap={};
+      invoiceHistory.forEach(h=>{invMap[h.id]=h;});
+      driveData.invoiceHistory.forEach(h=>{invMap[h.id]=h;});
+      mergedHistory=Object.values(invMap).sort((a,b)=>a.date.localeCompare(b.date));
+    }
+
+    // Apply merged data
+    worker={...{name:"",title:"",abn:"",email:"",phone:"",address:"",bankName:"",bsb:"",account:"",payableName:"",prefix:"",nextNum:1,gst:false},...mergedWorker};
+    clients=mergedClients;
+    invoiceHistory=mergedHistory.map(inv=>{
       if(inv.payStatus)return inv;
       if(inv.paid===true)return{...inv,payStatus:"paid",payDate:inv.paidDate||null};
       return{...inv,payStatus:"unpaid"};
     });
-    // Save to localStorage too for offline use
+
+    // Save merged result back to localStorage and Drive
     ls.set("ndis-worker",worker);ls.set("ndis-clients",clients);ls.set("ndis-history",invoiceHistory);
+    // Upload merged data back to Drive so both devices stay in sync
+    saveSyncFile().catch(e=>console.warn("Merge upload failed:",e));
     return true;
   }catch(e){console.warn("Sync load failed:",e);return false;}
 }
