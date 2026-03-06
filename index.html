@@ -1898,7 +1898,16 @@ async function processImportedPDFQueue(files){
       }
       const parsed=parseInvoiceText(fullText,file.name);
       if(!parsed){failed++;continue;}
-      parsed.invoiceNum=invoiceNumFromFilename(file.name);
+      // Build invoice number: prefer filename-derived if it has 2+ initials,
+      // otherwise use client name initials + number from filename
+      let invNum=invoiceNumFromFilename(file.name);
+      const numOnly=invNum.replace(/[^0-9]/g,"");
+      const letOnly=invNum.replace(/[^A-Z]/g,"");
+      if(letOnly.length<2&&parsed.clientName&&parsed.clientName!=="Unknown Client"){
+        const nameInitials=parsed.clientName.split(/\s+/).map(w=>w[0].toUpperCase()).join("").replace(/[^A-Z]/g,"");
+        if(nameInitials.length>=2) invNum=nameInitials+(numOnly||invNum.replace(/[^0-9]/g,""));
+      }
+      parsed.invoiceNum=invNum;
       importedInvoices.push({...parsed,id:uid(),source:"pdf",fileName:file.name,payStatus:"paid"});
       ls.set("ndis-imported-invoices",importedInvoices);
       imported++;
@@ -1919,17 +1928,18 @@ async function processImportedPDFQueue(files){
 
 function invoiceNumFromFilename(fileName){
   // e.g. "David_Murphy__-_44.pdf" → "DM44"
-  // Strip extension
-  const base=fileName.replace(/\.pdf$/i,"").replace(/\.PDF$/,"");
-  // Extract all words (split on spaces, underscores, dashes)
-  const words=base.split(/[\s_\-]+/).filter(w=>w.length>0);
-  // Grab initials from word parts that are purely letters
-  const initials=words.filter(w=>/^[a-zA-Z]+$/.test(w)).map(w=>w[0].toUpperCase()).join("");
-  // Grab the trailing number(s)
-  const nums=words.filter(w=>/^\d+$/.test(w));
+  // e.g. "Jay-dee_Invoice_-_69.pdf" → "JH69" (uses first word initial only for hyphenated names)
+  const base=fileName.replace(/\.pdf$/i,"");
+  // Words to skip — generic words that are not name parts
+  const SKIP=new Set(["invoice","inv","the","for","a","an","and","pdf"]);
+  const parts=base.split(/[\s_]+/).filter(p=>p.length>0);
+  // Trailing number: last purely numeric segment
+  const nums=parts.filter(p=>/^\d+$/.test(p));
   const num=nums.length?nums[nums.length-1]:"";
+  // Name words: non-numeric, non-skip parts — take only the FIRST token per hyphenated segment
+  const nameWords=parts.filter(p=>!/^\d+$/.test(p)).map(p=>p.split(/\-/)[0]).filter(w=>!SKIP.has(w.toLowerCase())&&/^[a-zA-Z]/.test(w));
+  const initials=nameWords.map(w=>w[0].toUpperCase()).join("");
   if(initials&&num) return initials+num;
-  // Fallback: just use the base name cleaned up
   return base.replace(/[^a-zA-Z0-9]/g,"").toUpperCase().slice(0,12);
 }
 
@@ -1939,33 +1949,60 @@ function parseInvoiceText(text, fileName){
   const t=text.replace(/\s+/g," ");
 
   // ── DATE ──────────────────────────────────────────────────────────────────
-  let dm=t.match(/Submitted\s+on\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/i);
-  if(!dm) dm=t.match(/Invoice[#\s]+\d+\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i);
+  // "Submitted on [the] DD/MM/YYYY"
+  let dm=t.match(/Submitted\s+on\s+(?:the\s+)?(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/i);
+  // "Invoice#NNN\n DD/MM/YYYY" — bare date right after invoice ref
+  if(!dm) dm=t.match(/Invoice[#\s]+[\w]+\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?!\d)/);
+  // Any 4-digit-year date — skip plan date ranges (MM/YY format) by requiring 4-digit year
   if(!dm) dm=t.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   let isoDate="";
   if(dm){let[,d,m,y]=dm;if(y.length===2)y="20"+y;isoDate=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;}
   if(!isoDate) isoDate=new Date().toISOString().slice(0,10);
 
   // ── CLIENT NAME ───────────────────────────────────────────────────────────
-  // Helper: strip trailing org words like "Plan Management", "Trusted..." etc
-  const stripOrg=s=>s.replace(/^For\s+/i,"").replace(/\s*(Trusted|Plan\s+Management|NDIS|Plan).*$/i,"").trim();
+  // Strip trailing org suffixes — Plan Management, TPM, My Plan Manager, Trusted etc
+  const stripOrg=s=>s.replace(/^(?:For\s+)+/i,"")
+                      .replace(/\s+(Trusted|My\s+Plan\s+Manager|My\s+Plan|Plan\s+Management|Plan\s+Manager|TPM|Plan|NDIS|My\b).*$/i,"")
+                      .trim();
+  // Name pattern: allow hyphenated first names like "Jay-dee", 1-4 name parts
+  const NAME=/([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+){0,3})/;
   let clientName="";
-  // "TO: For:\nFirstname Lastname [Plan...]" — name on line after "For:"
-  const toForM=raw.match(/(?:TO:\s*)?For:\s*\n([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,4})/);
+
+  // Format A: "TO: For:\nName [Org]" — name on line after "For:"
+  const toForM=raw.match(/(?:TO:\s*)?For:\s*\n([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+){0,3})/);
   if(toForM) clientName=stripOrg(toForM[1]);
-  // Inline "For Firstname Lastname" before Plan/NDIS/Trusted
-  if(!clientName){const m=t.match(/\bFor\b\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:Plan|NDIS|Trusted)/i);if(m)clientName=m[1].trim();}
-  // Name before "NDIS Number" or "Ndis no"
-  if(!clientName){const m=t.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:Plan\s+Management\s+)?(?:NDIS\s+(?:Number|no)|Ndis\s+no)/i);if(m)clientName=m[1].trim();}
-  // "Invoice for\nFirstname Lastname"
-  if(!clientName){const m=raw.match(/Invoice\s+for\s*\n([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i);if(m)clientName=stripOrg(m[1]);}
+
+  // Format B: "Invoice for\nName" or "Invoice for For\nName"
+  if(!clientName){
+    const m=raw.match(/Invoice\s+for(?:\s+For)?\s*\n([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+){0,3})/i);
+    if(m) clientName=stripOrg(m[1]);
+  }
+
+  // Format C: inline "For Name Plan|NDIS|Trusted|TPM"
+  if(!clientName){
+    const m=t.match(/\bFor\b\s+([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+){1,3})\s+(?:Plan|NDIS|Trusted|TPM|My\s+Plan)/i);
+    if(m) clientName=stripOrg(m[1]);
+  }
+
+  // Format D: name before "NDIS Number" or "Ndis no"
+  if(!clientName){
+    const m=t.match(/([A-Z][a-zA-Z\-]+(?:\s+[A-Z][a-zA-Z\-]+){1,3})\s+(?:Plan\s+Management\s+)?(?:NDIS\s+(?:Number|no)|Ndis\s+no)/i);
+    if(m) clientName=stripOrg(m[1]);
+  }
+
   if(!clientName) clientName="Unknown Client";
 
   // ── TOTAL ─────────────────────────────────────────────────────────────────
+  // Prefer explicit "Total $X" — last occurrence
   const totalMs=[...t.matchAll(/\bTotal\b\s+\$?\s*([\d,]+\.\d{2})/gi)];
   let total=0;
   if(totalMs.length) total=parseFloat(totalMs[totalMs.length-1][1].replace(/,/g,""));
+  // Fallback: "Subtotal $X" 
+  if(!total){const m=t.match(/\bSubtotal\b\s+\$?\s*([\d,]+\.\d{2})/i);if(m)total=parseFloat(m[1].replace(/,/g,""));}
+  // Fallback: last bare "$X.XX" in the doc
   if(!total){const ams=[...t.matchAll(/\$\s*([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,"")));if(ams.length)total=ams[ams.length-1];}
+  // Fallback: last bare number like "$1,130.02" without dollar sign (Notes:\n$1,130.02)
+  if(!total){const m=t.match(/Notes:.*?\$\s*([\d,]+\.\d{2})/i);if(m)total=parseFloat(m[1].replace(/,/g,""));}
   if(!total||isNaN(total)) return null;
 
   // ── GST ───────────────────────────────────────────────────────────────────
@@ -1973,7 +2010,7 @@ function parseInvoiceText(text, fileName){
   const gst=gstM?parseFloat(gstM[1].replace(/,/g,"")):0;
 
   // ── PLAN MANAGER ──────────────────────────────────────────────────────────
-  const pmM=t.match(/([A-Z][A-Za-z\s]{2,30}Plan\s+Management)/i);
+  const pmM=t.match(/([A-Z][A-Za-z\s]{2,30}(?:Plan\s+Management|Plan\s+Manager|TPM))/i);
   const pmOrg=pmM?pmM[1].trim():"";
 
   return {date:isoDate, clientName, total, gst, pmOrg, subtotal:total-gst};
