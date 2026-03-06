@@ -8,8 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="screen"/>
 <style>@media print{*{font-family:Arial,Helvetica,sans-serif!important;}}</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" async></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" async></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" async></script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -2027,37 +2026,24 @@ function emailInvoice(){
   const body=encodeURIComponent(bodyRaw);
   const entryId=entry.id;
   const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-  toast("\u{1F4C4} Generating PDF...");
-  setTimeout(async()=>{
-    try{
-      const el=document.getElementById("inv-render");
-      // Force a fixed render width matching the invoice design (720px) so the PDF
-      // is never zoomed in regardless of the current screen/window width
-      const prevWidth=el.style.width;
-      el.style.width="720px";
-      const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:"#ffffff",width:720,windowWidth:720});
-      el.style.width=prevWidth;
-      const{jsPDF}=window.jspdf;const pdf=new jsPDF("p","mm","a4");
-      const pageW=pdf.internal.pageSize.getWidth();
-      const pageH=pdf.internal.pageSize.getHeight();
-      const imgH=(canvas.height*pageW)/canvas.width;
-      // If invoice is taller than one page, scale it to fit
-      if(imgH>pageH){
-        const scale=pageH/imgH;
-        pdf.addImage(canvas.toDataURL("image/jpeg",0.85),"JPEG",0,0,pageW*scale,pageH);
+  // Use browser native print for PDF — far better quality than html2canvas.
+  // User saves it as PDF via the print dialog (Save as PDF), then we open email.
+  const prevTitle=document.title;
+  document.title=invoiceNum;
+  toast("\u{1F5A8} Opening print dialog — save as PDF, then email will open");
+  setTimeout(()=>{
+    window.print();
+    document.title=prevTitle;
+    // After print dialog closes, handle email
+    setTimeout(()=>{
+      if(isMobile){
+        showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
       }else{
-        pdf.addImage(canvas.toDataURL("image/jpeg",0.85),"JPEG",0,0,pageW,imgH);
+        window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
+        setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
       }
-      pdf.save(`${invoiceNum}.pdf`);
-      toast("\u{1F4C4} PDF saved!");
-    }catch(e){console.warn("PDF gen failed:",e);}
-    if(isMobile){
-      showEmailModal(pmEmail,subjectRaw,bodyRaw,entryId,invoiceNum);
-    }else{
-      window.location.href=`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pmEmail)}&su=${subject}&body=${body}`;
-      setTimeout(()=>showSentConfirm(entryId,invoiceNum),1500);
-    }
-  },200);
+    },500);
+  },150);
 }
 function showEmailModal(pmEmail,subject,body,entryId,invoiceNum){
   const existing=document.getElementById("email-details-modal");if(existing)existing.remove();
