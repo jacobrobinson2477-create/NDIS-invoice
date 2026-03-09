@@ -2563,7 +2563,7 @@ function exportTaxCSV(fy){
   const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
   const a=document.createElement("a");a.href=url;a.download=`ndis-tax-FY${fy}.csv`;a.click();URL.revokeObjectURL(url);toast("CSV exported ✓");
 }
-</script>
+
 
 // ── BANK RECONCILIATION ──────────────────────────────────────────────────────
 
@@ -2945,6 +2945,7 @@ function loadSavedBankTxs(){
   }
 }
 
+</script>
 
 <script src="https://accounts.google.com/gsi/client" async></script>
 
