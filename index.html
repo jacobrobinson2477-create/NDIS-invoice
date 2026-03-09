@@ -2598,22 +2598,22 @@ async function processBankFiles(files){
     }
   }
   if(!allTx.length){ toast('⚠ No transactions found — try the CSV export format.'); return; }
+
   // Filter to current FY only (1 July 2025 onwards)
-  const FY_START = '2025-07-01';
-  allTx = allTx.filter(tx => tx.date >= FY_START);
+  allTx = allTx.filter(tx => tx.date >= '2025-07-01');
   if(!allTx.length){ toast('⚠ No transactions found on or after 1 July 2025.'); return; }
-  // Deduplicate overlapping statement exports by date+amount.
-  // Description intentionally excluded — it can vary between PDF and CSV exports of the same tx.
-  // Two different credits for the same amount on the same day are kept as separate entries.
-  const keepCount = new Map();
+
+  // Build the set of invoice amounts we actually care about — only keep bank
+  // credits whose amount exactly matches at least one invoice. This eliminates
+  // personal transfers, ATM credits, refunds, etc. that would cause false matches.
+  const invoiceAmounts = new Set(
+    [...(invoiceHistory||[]), ...(importedInvoices||[])].map(inv => inv.total.toFixed(2))
+  );
+  allTx = allTx.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
+
+  // Deduplicate: overlapping statement exports produce duplicate rows.
+  // Key on date+amount — keep only the first occurrence per key.
   const seenCount = new Map();
-  // First pass: count how many times each date+amount appears
-  for(const tx of allTx){
-    const k = `${tx.date}|${tx.amount.toFixed(2)}`;
-    keepCount.set(k, (keepCount.get(k)||0) + 1);
-  }
-  // Second pass: keep only [max] unique occurrences per key
-  // Since we can't know which duplicates are real vs overlap, keep just 1 per key
   bankTransactions = allTx.filter(tx => {
     const k = `${tx.date}|${tx.amount.toFixed(2)}`;
     const n = (seenCount.get(k)||0) + 1;
