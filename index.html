@@ -2935,11 +2935,15 @@ function runReconciliation(){
   const allInvoices = getAllReconInvoices();
   if(!allInvoices.length){ toast('No invoices found — create some invoices first.'); return; }
 
-  // Build a lookup: amount (to 2dp string) -> array of tx indices
-  // Pure amount matching — no description scoring, no bonuses.
+  // Only consider bank credits whose amount exactly matches an invoice — filter out
+  // personal transfers, ATM credits, refunds etc. even if cached from a previous load.
+  const invoiceAmounts = new Set(allInvoices.map(inv => inv.total.toFixed(2)));
+  const eligibleTx = bankTransactions.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
+
+  // Build a lookup: amount -> array of eligible tx indices
   const amtIndex = new Map();
-  for(let i = 0; i < bankTransactions.length; i++){
-    const key = bankTransactions[i].amount.toFixed(2);
+  for(let i = 0; i < eligibleTx.length; i++){
+    const key = eligibleTx[i].amount.toFixed(2);
     if(!amtIndex.has(key)) amtIndex.set(key, []);
     amtIndex.get(key).push(i);
   }
@@ -2956,7 +2960,7 @@ function runReconciliation(){
     let bestIdx = -1, bestDiff = Infinity;
     for(const i of candidates){
       if(used.has(i)) continue;
-      const tx = bankTransactions[i];
+      const tx = eligibleTx[i];
       const txDate = new Date(tx.date+'T12:00:00');
       const dayDiff = (txDate - invDate) / 86400000;
       if(dayDiff < -30 || dayDiff > 90) continue;
@@ -2966,7 +2970,7 @@ function runReconciliation(){
     if(bestIdx >= 0){
       used.add(bestIdx);
       inv._reconStatus = 'matched';
-      inv._matchTx = bankTransactions[bestIdx];
+      inv._matchTx = eligibleTx[bestIdx];
     } else {
       inv._reconStatus = (inv.payStatus === 'sent' || inv.payStatus === 'pending')
         ? 'pending'
@@ -3059,7 +3063,8 @@ function renderReconResults(){
 }
 
 function renderBankTxList(){
-  const credits = bankTransactions.filter(tx=>tx.amount>0);
+  const invoiceAmounts = new Set(getAllReconInvoices().map(inv => inv.total.toFixed(2)));
+  const credits = bankTransactions.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
   $('tx-count').textContent = credits.length;
   const el = $('bank-tx-list');
   if(!el) return;
@@ -3085,7 +3090,8 @@ function showBankLoadedBar(filename){
   const section = $('bank-drop-section');
   if(bar){ bar.classList.remove('hidden'); }
   if(section){ section.style.display = 'none'; }
-  const credits = bankTransactions.filter(t=>t.amount>0);
+  const invoiceAmts = new Set([...(invoiceHistory||[]),...(importedInvoices||[])].map(i=>i.total.toFixed(2)));
+  const credits = bankTransactions.filter(t => invoiceAmts.has(t.amount.toFixed(2)));
   if(credits.length){
     const dates = credits.map(t=>t.date).sort();
     $t('bank-loaded-name', filename.length > 40 ? filename.slice(0,40)+'…' : filename);
