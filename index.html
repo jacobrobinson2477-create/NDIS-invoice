@@ -291,6 +291,58 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 .inv-footer strong{font-weight:700;}
 .inv-disc-bar{padding:8px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#92400e;line-height:1.5;}
 
+/* ── BANK RECONCILIATION ── */
+.bank-drop-zone{border:2px dashed var(--border2);border-radius:12px;padding:32px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#fff;margin-bottom:14px;position:relative;}
+.bank-drop-zone:hover,.bank-drop-zone.drag-over{border-color:var(--green);background:var(--sky);}
+.bank-drop-icon{font-size:32px;margin-bottom:8px;}
+.bank-drop-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.bank-drop-sub{font-size:12px;color:var(--sub);line-height:1.5;}
+.bank-drop-sub span{color:var(--green);font-weight:500;}
+.recon-summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.recon-stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;}
+.recon-stat-val{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;}
+.recon-stat-lbl{font-size:11px;color:var(--sub);font-weight:500;}
+.recon-stat.matched .recon-stat-val{color:var(--green);}
+.recon-stat.unmatched .recon-stat-val{color:var(--red);}
+.recon-stat.pending .recon-stat-val{color:var(--amber);}
+.recon-stat.total .recon-stat-val{color:var(--green-xd);}
+.recon-row{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;margin-bottom:6px;transition:box-shadow .15s;}
+.recon-row:hover{box-shadow:var(--shadow-md);}
+.recon-row.matched{border-left:3px solid var(--green);}
+.recon-row.unmatched{border-left:3px solid var(--red);background:#fff8f8;}
+.recon-row.pending{border-left:3px solid var(--amber);background:#fffdf0;}
+.recon-status-dot{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.recon-status-dot.matched{background:#d1fae5;}
+.recon-status-dot.unmatched{background:#fee2e2;}
+.recon-status-dot.pending{background:#fef3c7;}
+.recon-inv-num{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--green-xd);}
+.recon-inv-client{font-size:13px;font-weight:500;color:var(--text);}
+.recon-inv-meta{font-size:11px;color:var(--faint);margin-top:2px;}
+.recon-match-info{font-size:11px;color:var(--green-d);margin-top:2px;font-style:italic;}
+.recon-unmatch-info{font-size:11px;color:var(--red);margin-top:2px;}
+.recon-amt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}
+.recon-amt.matched{color:var(--green-d);}
+.recon-amt.unmatched{color:var(--red);}
+.recon-amt.pending{color:var(--amber);}
+.recon-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
+.recon-badge.matched{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;}
+.recon-badge.unmatched{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
+.recon-badge.pending{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.recon-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.recon-filter-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border2);background:#fff;color:var(--sub);transition:all .15s;font-family:'Inter',sans-serif;}
+.recon-filter-btn.active{background:var(--green-xd);color:#a7f3d0;border-color:var(--green-xd);}
+.bank-tx-list{max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;}
+.bank-tx-row{display:grid;grid-template-columns:100px 1fr auto;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;align-items:center;}
+.bank-tx-row:last-child{border-bottom:none;}
+.bank-tx-row.credited{background:#f0fdf9;}
+.bank-tx-date{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--faint);}
+.bank-tx-desc{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bank-tx-amt{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;text-align:right;}
+.bank-tx-amt.credit{color:var(--green);}
+.bank-tx-amt.debit{color:var(--faint);}
+.bank-loaded-bar{background:var(--sky);border:1px solid #a7f3d0;border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;}
+.recon-section-hd{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
 /* ── TOAST ── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--green-xd);color:#a7f3d0;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:999;box-shadow:var(--shadow-md);animation:toastIn .2s ease;pointer-events:none;}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -385,6 +437,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
     <button class="nav-btn nav-hide-mobile" id="nav-history" onclick="goPage('history')">📋 History</button>
     <button class="nav-btn nav-hide-mobile" id="nav-report" onclick="goPage('report')">📊 Report</button>
     <button class="nav-btn nav-hide-mobile" id="nav-tax" onclick="goPage('tax')">🧾 Tax</button>
+    <button class="nav-btn nav-hide-mobile" id="nav-recon" onclick="goPage('recon')">🏦 Reconcile</button>
     <button class="nav-btn nav-hide-mobile" id="nav-settings" onclick="goPage('settings')">⚙ Profile</button>
     <button class="nav-btn hidden" id="install-btn" onclick="installApp()">📲 Install</button>
     <div class="nav-more-wrap">
@@ -393,6 +446,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <button class="nav-btn" id="nav-history-m" onclick="goPage('history');closeNavMenu()">📋 History</button>
         <button class="nav-btn" id="nav-report-m" onclick="goPage('report');closeNavMenu()">📊 Report</button>
         <button class="nav-btn" id="nav-tax-m" onclick="goPage('tax');closeNavMenu()">🧾 Tax</button>
+        <button class="nav-btn" id="nav-recon-m" onclick="goPage('recon');closeNavMenu()">🏦 Reconcile</button>
         <button class="nav-btn" id="nav-settings-m" onclick="goPage('settings');closeNavMenu()">⚙ Profile</button>
         <button class="nav-btn" onclick="exportData();closeNavMenu()">💾 Backup</button>
         <button class="nav-btn" onclick="importData();closeNavMenu()">📂 Restore</button>
@@ -711,6 +765,84 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
       <div id="imported-inv-list"></div>
     </div>
 
+    <!-- ── BANK RECONCILIATION ── -->
+    <div class="page" id="page-recon">
+      <div class="ph-row">
+        <div>
+          <div class="ph-eyebrow">Payments</div>
+          <div class="ph-title">Bank Reconciliation</div>
+          <div class="ph-sub">Drop your ANZ bank statement to verify which invoices have been paid.</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="clearBankData()" id="recon-clear-btn" style="display:none;">🗑 Clear Statement</button>
+          <button class="btn btn-soft btn-sm" onclick="exportReconCSV()">📥 Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div id="bank-drop-section">
+        <div class="bank-drop-zone" id="bank-drop-zone"
+             ondragover="bankDragOver(event)" ondragleave="bankDragLeave(event)" ondrop="bankDrop(event)"
+             onclick="document.getElementById('bank-file-input').click()">
+          <div class="bank-drop-icon">🏦</div>
+          <div class="bank-drop-title">Drop your ANZ bank statement here</div>
+          <div class="bank-drop-sub">Supports <span>PDF statements</span> or <span>CSV transaction exports</span><br>ANZ Internet Banking → Transactions → Export</div>
+        </div>
+        <input type="file" id="bank-file-input" accept=".pdf,.csv,.txt" multiple style="display:none" onchange="bankFileSelected(event)"/>
+        <div class="disc" style="margin-top:0;">💡 <strong>How to export from ANZ:</strong> Internet Banking → Accounts → Select account → Transactions → Export → CSV format. Or download your PDF statements. Multiple files can be dropped at once.</div>
+      </div>
+
+      <!-- Loaded statement info bar -->
+      <div class="bank-loaded-bar hidden" id="bank-loaded-bar">
+        <span>🏦 <strong id="bank-loaded-name">Statement loaded</strong> — <span id="bank-loaded-range"></span> · <span id="bank-loaded-count"></span> credits found</span>
+        <button class="btn btn-ghost btn-sm" onclick="clearBankData()">✕ Remove</button>
+      </div>
+
+      <!-- Summary stats -->
+      <div id="recon-stats" class="hidden">
+        <div class="recon-summary-grid">
+          <div class="recon-stat total"><div class="recon-stat-val" id="rs-total-count">0</div><div class="recon-stat-lbl">Total Invoices</div></div>
+          <div class="recon-stat matched"><div class="recon-stat-val" id="rs-matched-count">0</div><div class="recon-stat-lbl">✓ Matched &amp; Paid</div></div>
+          <div class="recon-stat unmatched"><div class="recon-stat-val" id="rs-unmatched-count">0</div><div class="recon-stat-lbl">✗ Not Found</div></div>
+          <div class="recon-stat pending"><div class="recon-stat-val" id="rs-pending-count">0</div><div class="recon-stat-lbl">⏳ Sent / Pending</div></div>
+        </div>
+        <div class="recon-summary-grid" style="margin-bottom:20px;">
+          <div class="recon-stat matched"><div class="recon-stat-val" id="rs-matched-amt" style="font-size:16px;">$0</div><div class="recon-stat-lbl">Confirmed received</div></div>
+          <div class="recon-stat unmatched"><div class="recon-stat-val" id="rs-unmatched-amt" style="font-size:16px;">$0</div><div class="recon-stat-lbl">Missing from bank</div></div>
+          <div class="recon-stat pending"><div class="recon-stat-val" id="rs-pending-amt" style="font-size:16px;">$0</div><div class="recon-stat-lbl">Awaiting payment</div></div>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="recon-filters hidden" id="recon-filters">
+        <button class="recon-filter-btn active" onclick="setReconFilter('all',this)">All</button>
+        <button class="recon-filter-btn" onclick="setReconFilter('matched',this)">✓ Matched</button>
+        <button class="recon-filter-btn" onclick="setReconFilter('unmatched',this)">✗ Not Found</button>
+        <button class="recon-filter-btn" onclick="setReconFilter('pending',this)">⏳ Pending</button>
+        <div style="margin-left:auto;">
+          <select id="recon-client-filter" onchange="renderReconResults()" style="background:#fff;border:1.5px solid var(--border2);border-radius:8px;padding:6px 10px;font-size:12px;font-family:'Inter',sans-serif;color:var(--text);outline:none;cursor:pointer;">
+            <option value="">All clients</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results list -->
+      <div id="recon-results"></div>
+
+      <!-- Bank transactions panel (collapsible) -->
+      <div id="recon-tx-panel" class="hidden" style="margin-top:20px;">
+        <div class="card">
+          <div class="card-hd" style="cursor:pointer;" onclick="toggleTxPanel()">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📊</span> Bank Credits Detected (<span id="tx-count">0</span>)</span>
+            <span id="tx-toggle-icon" style="color:var(--faint);font-size:12px;">▼ Show</span>
+          </div>
+          <div id="tx-list-wrap" style="display:none;">
+            <div class="bank-tx-list" id="bank-tx-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /shell -->
 
@@ -812,6 +944,7 @@ window.addEventListener("load",()=>{
   }catch(e){console.error("Boot load error:",e);}
   try{renderSidebar();}catch(e){console.error("renderSidebar error:",e);}
   try{populateReportMonths();}catch(e){console.error("populateReportMonths error:",e);}
+  try{loadSavedBankTxs();}catch(e){console.error("loadSavedBankTxs error:",e);}
   try{
     if(!worker.name){populateSettings();goPage("settings");}
     else if(!worker.onboarded&&invoiceHistory.length===0&&clients.length===0){goPage("onboarding");}
@@ -851,13 +984,14 @@ function goPage(name){
     if(fab) fab.classList.toggle("hidden",name!=="services");
     // Nav button highlight
     document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active-tab"));
-    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"],tax:["nav-tax","nav-tax-m"]};
+    const navMap={history:["nav-history","nav-history-m"],report:["nav-report","nav-report-m"],settings:["nav-settings","nav-settings-m"],tax:["nav-tax","nav-tax-m"],recon:["nav-recon","nav-recon-m"]};
     if(navMap[name]){navMap[name].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add("active-tab");});}
     if(name==="dashboard") renderDashboard();
     if(name==="settings") populateSettings();
     if(name==="tax"){populateTaxFY();populateImportClientSelect();renderImportedList();renderTax();}
     if(name==="history"){populateHistoryFilter();renderHistory();}
     if(name==="report"){populateReportClients();renderReport();}
+    if(name==="recon"){populateReconClientFilter();if(bankTransactions.length) runReconciliation();}
   }catch(err){console.error("goPage error:",err);}
 }
 
@@ -2431,7 +2565,387 @@ function exportTaxCSV(fy){
 }
 </script>
 
-<!-- Google Identity Services for Drive API -->
+// ── BANK RECONCILIATION ──────────────────────────────────────────────────────
+
+let bankTransactions = [];   // parsed credits from statement
+let reconFilter = 'all';
+
+function bankDragOver(e){ e.preventDefault(); $('bank-drop-zone').classList.add('drag-over'); }
+function bankDragLeave(e){ $('bank-drop-zone').classList.remove('drag-over'); }
+function bankDrop(e){
+  e.preventDefault();
+  $('bank-drop-zone').classList.remove('drag-over');
+  const files = [...e.dataTransfer.files];
+  if(files.length) processBankFiles(files);
+}
+function bankFileSelected(e){
+  const files = [...e.target.files];
+  if(files.length) processBankFiles(files);
+  e.target.value = '';
+}
+
+async function processBankFiles(files){
+  toast('Reading statement…');
+  let allTx = [];
+  for(const f of files){
+    const ext = f.name.split('.').pop().toLowerCase();
+    if(ext === 'csv' || ext === 'txt'){
+      const text = await f.text();
+      allTx = allTx.concat(parseANZCSV(text));
+    } else if(ext === 'pdf'){
+      const txs = await parseANZPDF(f);
+      allTx = allTx.concat(txs);
+    }
+  }
+  if(!allTx.length){ toast('⚠ No transactions found — try the CSV export format.'); return; }
+  // Filter to current FY only (1 July 2025 onwards)
+  const FY_START = '2025-07-01';
+  allTx = allTx.filter(tx => tx.date >= FY_START);
+  if(!allTx.length){ toast('⚠ No transactions found on or after 1 July 2025.'); return; }
+  // Deduplicate overlapping statement exports by date+amount.
+  // Description intentionally excluded — it can vary between PDF and CSV exports of the same tx.
+  // Two different credits for the same amount on the same day are kept as separate entries.
+  const keepCount = new Map();
+  const seenCount = new Map();
+  // First pass: count how many times each date+amount appears
+  for(const tx of allTx){
+    const k = `${tx.date}|${tx.amount.toFixed(2)}`;
+    keepCount.set(k, (keepCount.get(k)||0) + 1);
+  }
+  // Second pass: keep only [max] unique occurrences per key
+  // Since we can't know which duplicates are real vs overlap, keep just 1 per key
+  bankTransactions = allTx.filter(tx => {
+    const k = `${tx.date}|${tx.amount.toFixed(2)}`;
+    const n = (seenCount.get(k)||0) + 1;
+    seenCount.set(k, n);
+    return n === 1;
+  }).sort((a,b) => a.date.localeCompare(b.date));
+  
+  ls.set('ndis-bank-txs', bankTransactions);
+  showBankLoadedBar(files.map(f=>f.name).join(', '));
+  runReconciliation();
+  toast(`✓ Loaded ${bankTransactions.length} transactions`);
+}
+
+function parseANZCSV(text){
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const txs = [];
+  // ANZ CSV formats vary — try to detect header
+  // Common ANZ export: Date,Description,Amount,Balance or Date,Amount,Description
+  for(const line of lines){
+    if(!line || line.toLowerCase().includes('date') || line.toLowerCase().includes('transaction')) continue;
+    // Try comma split, handle quoted fields
+    const cols = line.match(/(".*?"|[^,]+)(?:,|$)/g)?.map(c => c.replace(/^"|"$|,$/g,'').trim()) || [];
+    if(cols.length < 3) continue;
+    // Find a date column
+    const dateRx = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/;
+    let dateCol = -1, amtCol = -1, descCol = -1;
+    for(let i=0;i<cols.length;i++){
+      if(dateRx.test(cols[i])) { dateCol = i; break; }
+    }
+    if(dateCol < 0) continue;
+    // Find amount — look for numeric with optional minus/plus
+    for(let i=0;i<cols.length;i++){
+      if(i===dateCol) continue;
+      const v = cols[i].replace(/[$,]/g,'');
+      if(!isNaN(parseFloat(v)) && v !== '') { amtCol = i; break; }
+    }
+    if(amtCol < 0) continue;
+    // Description is the remaining non-empty column
+    for(let i=0;i<cols.length;i++){
+      if(i===dateCol || i===amtCol) continue;
+      if(cols[i] && isNaN(parseFloat(cols[i].replace(/[$,]/g,'')))) { descCol = i; break; }
+    }
+    const rawDate = cols[dateCol];
+    const m = dateRx.exec(rawDate);
+    if(!m) continue;
+    let [,d,mo,y] = m;
+    if(y.length===2) y = '20'+y;
+    const iso = `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    const amt = parseFloat(cols[amtCol].replace(/[$,]/g,''));
+    if(isNaN(amt)) continue;
+    // Credits only (positive amounts coming in) — for ANZ CSV credits are positive
+    if(amt > 0){
+      txs.push({ date: iso, amount: amt, desc: descCol >= 0 ? cols[descCol] : '', raw: line });
+    }
+  }
+  return txs;
+}
+
+async function parseANZPDF(file){
+  // Use pdf.js to extract text from the statement PDF
+  const txs = [];
+  try{
+    if(typeof pdfjsLib === 'undefined'){
+      // Wait for pdfjs to load
+      await new Promise(r => { const t = setInterval(()=>{ if(typeof pdfjsLib !== 'undefined'){clearInterval(t);r();} },200); setTimeout(()=>{clearInterval(t);r();},8000); });
+    }
+    if(typeof pdfjsLib === 'undefined'){ toast('⚠ PDF reader still loading — try CSV export instead.'); return txs; }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    let fullText = '';
+    for(let p=1;p<=pdf.numPages;p++){
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      fullText += tc.items.map(i=>i.str).join(' ') + '\n';
+    }
+    // Parse ANZ PDF statement text
+    // Look for lines like: "07 Feb 2025 TRANSFER FROM PLAN PARTNERS ... 1,130.02 ..."
+    const dateRx = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/gi;
+    const amtRx = /\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/g;
+    // Split into lines and look for credit transactions
+    const lines = fullText.split(/\n/);
+    const MONTHS = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+    for(const line of lines){
+      const dm = dateRx.exec(line);
+      dateRx.lastIndex = 0;
+      if(!dm) continue;
+      const [,d,mo,y] = dm;
+      const iso = `${y}-${MONTHS[mo]}-${d.padStart(2,'0')}`;
+      // Find amounts on this line
+      const amts = [...line.matchAll(amtRx)].map(m=>parseFloat(m[1].replace(/,/g,'')));
+      if(!amts.length) continue;
+      // Heuristic: if line contains TRANSFER or credit-like keywords, take first positive amount
+      const upper = line.toUpperCase();
+      const isCredit = /TRANSFER FROM|CREDIT|DEPOSIT|PAYMENT FROM|DIRECT CREDIT/.test(upper);
+      if(!isCredit) continue;
+      const amt = amts[0];
+      if(amt > 0){
+        // Description: everything between date match end and first amount
+        const descStart = dm.index + dm[0].length;
+        const descEnd = line.indexOf(amts[0].toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+        const desc = line.slice(descStart, descEnd > descStart ? descEnd : undefined).trim().replace(/\s+/g,' ');
+        txs.push({ date: iso, amount: amt, desc, raw: line.trim() });
+      }
+    }
+  } catch(err){
+    console.error('PDF parse error:', err);
+    toast('⚠ Could not fully parse PDF — try downloading the CSV export from ANZ.');
+  }
+  return txs;
+}
+
+function runReconciliation(){
+  // Get all invoices: from app history + imported
+  const allInvoices = getAllReconInvoices();
+  if(!allInvoices.length){ toast('No invoices found — create some invoices first.'); return; }
+  // For each invoice, try to match a bank credit
+  const used = new Set(); // indices of bankTransactions already matched
+  for(const inv of allInvoices){
+    inv._match = null;
+    inv._matchTx = null;
+    if(inv.payStatus === 'sent' || inv.payStatus === 'pending'){
+      inv._reconStatus = 'pending';
+      continue;
+    }
+    // Try to match by amount within a date window
+    const invDate = new Date(inv.date+'T12:00:00');
+    const matchWindow = 90; // days before/after invoice date to look for payment
+    let bestMatch = null, bestScore = -1;
+    for(let i=0;i<bankTransactions.length;i++){
+      if(used.has(i)) continue;
+      const tx = bankTransactions[i];
+      const txDate = new Date(tx.date+'T12:00:00');
+      const dayDiff = (txDate - invDate) / 86400000;
+      if(dayDiff < -30 || dayDiff > matchWindow) continue; // payment should come after invoice, with some grace
+      // Amount match (exact or within $0.01)
+      const amtDiff = Math.abs(tx.amount - inv.total);
+      if(amtDiff > 0.02) continue;
+      // Score: closer in time = higher score
+      const score = 1000 - Math.abs(dayDiff);
+      // Bonus: description matches client name or plan manager
+      const upper = tx.desc.toUpperCase();
+      const cl = clients.find(c=>c.id===inv.clientId);
+      const pmOrg = cl?.pm?.org || inv.pmOrg || '';
+      const nameWords = (inv.clientName||'').toUpperCase().split(' ');
+      const pmWords = pmOrg.toUpperCase().split(' ').filter(w=>w.length>3);
+      const nameMatch = nameWords.some(w=>w.length>2 && upper.includes(w));
+      const pmMatch = pmWords.some(w=>upper.includes(w));
+      const bonus = (nameMatch ? 200 : 0) + (pmMatch ? 300 : 0);
+      if(score + bonus > bestScore){ bestScore = score + bonus; bestMatch = {i, tx}; }
+    }
+    if(bestMatch){
+      used.add(bestMatch.i);
+      inv._reconStatus = 'matched';
+      inv._matchTx = bestMatch.tx;
+    } else {
+      inv._reconStatus = bankTransactions.length > 0 ? 'unmatched' : 'unknown';
+    }
+  }
+  renderReconStats(allInvoices);
+  renderReconResults();
+  renderBankTxList();
+  // Show UI elements
+  $('recon-stats').classList.remove('hidden');
+  $('recon-filters').classList.remove('hidden');
+  $('recon-tx-panel').classList.remove('hidden');
+  $('recon-clear-btn').style.display = '';
+  // Populate client filter
+  populateReconClientFilter();
+}
+
+function getAllReconInvoices(){
+  // Combine invoiceHistory + importedInvoices, deduplicate by invoiceNum
+  const seen = new Set();
+  const all = [];
+  for(const inv of [...(invoiceHistory||[]), ...(importedInvoices||[])]){
+    if(!seen.has(inv.invoiceNum)){ seen.add(inv.invoiceNum); all.push({...inv}); }
+  }
+  return all.sort((a,b) => b.date.localeCompare(a.date)); // newest first
+}
+
+function renderReconStats(invoices){
+  const matched = invoices.filter(i=>i._reconStatus==='matched');
+  const unmatched = invoices.filter(i=>i._reconStatus==='unmatched');
+  const pending = invoices.filter(i=>i._reconStatus==='pending');
+  $('rs-total-count').textContent = invoices.length;
+  $('rs-matched-count').textContent = matched.length;
+  $('rs-unmatched-count').textContent = unmatched.length;
+  $('rs-pending-count').textContent = pending.length;
+  $('rs-matched-amt').textContent = aud(matched.reduce((s,i)=>s+i.total,0));
+  $('rs-unmatched-amt').textContent = aud(unmatched.reduce((s,i)=>s+i.total,0));
+  $('rs-pending-amt').textContent = aud(pending.reduce((s,i)=>s+i.total,0));
+}
+
+function setReconFilter(f, btn){
+  reconFilter = f;
+  document.querySelectorAll('.recon-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReconResults();
+}
+
+function renderReconResults(){
+  const el = $('recon-results');
+  if(!el) return;
+  const filterClient = $('recon-client-filter')?.value || '';
+  let invoices = getAllReconInvoices();
+  if(!invoices.length){ el.innerHTML = '<div class="hist-empty" style="text-align:center;padding:40px;color:var(--faint);font-size:13px;">No invoices yet — generate your first invoice to see reconciliation results.</div>'; return; }
+  if(filterClient) invoices = invoices.filter(i=>i.clientId===filterClient);
+  if(reconFilter !== 'all') invoices = invoices.filter(i=>i._reconStatus===reconFilter);
+  if(!invoices.length){ el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--faint);font-size:13px;">No invoices match this filter.</div>'; return; }
+  // Group by status
+  const sections = reconFilter === 'all'
+    ? [['unmatched','✗ Not Found in Bank',invoices.filter(i=>i._reconStatus==='unmatched')],
+       ['pending','⏳ Sent / Awaiting Payment',invoices.filter(i=>i._reconStatus==='pending')],
+       ['matched','✓ Confirmed Paid',invoices.filter(i=>i._reconStatus==='matched')]]
+    : [['all','',invoices]];
+  let html = '';
+  for(const [status, label, group] of sections){
+    if(!group.length) continue;
+    if(label) html += `<div class="recon-section-hd">${label} (${group.length})</div>`;
+    for(const inv of group){
+      const st = inv._reconStatus || 'unknown';
+      const cl = clients.find(c=>c.id===inv.clientId);
+      const pm = cl?.pm?.org || inv.pmOrg || 'Unknown PM';
+      const dot = st==='matched'?'✓':st==='pending'?'⏳':'✗';
+      const matchInfo = inv._matchTx
+        ? `<div class="recon-match-info">Matched bank credit ${fmtShort(inv._matchTx.date)} — ${esc(inv._matchTx.desc.slice(0,60))}</div>`
+        : st==='unmatched' ? `<div class="recon-unmatch-info">No matching bank deposit found</div>` : '';
+      html += `<div class="recon-row ${st}">
+        <div class="recon-status-dot ${st}">${dot}</div>
+        <div>
+          <div class="recon-inv-num">${esc(inv.invoiceNum)}</div>
+          <div class="recon-inv-client">${esc(inv.clientName)}</div>
+          <div class="recon-inv-meta">${esc(pm)} · ${fmtShort(inv.date)}</div>
+          ${matchInfo}
+        </div>
+        <span class="recon-badge ${st}">${st==='matched'?'PAID':st==='pending'?'PENDING':'MISSING'}</span>
+        <div class="recon-amt ${st}">${aud(inv.total)}</div>
+      </div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function renderBankTxList(){
+  const credits = bankTransactions.filter(tx=>tx.amount>0);
+  $('tx-count').textContent = credits.length;
+  const el = $('bank-tx-list');
+  if(!el) return;
+  el.innerHTML = credits.map(tx=>`
+    <div class="bank-tx-row credited">
+      <div class="bank-tx-date">${fmtShort(tx.date)}</div>
+      <div class="bank-tx-desc" title="${esc(tx.desc)}">${esc(tx.desc||'—')}</div>
+      <div class="bank-tx-amt credit">+${aud(tx.amount)}</div>
+    </div>`).join('') || '<div style="padding:16px;text-align:center;color:var(--faint);font-size:12px;">No credits found</div>';
+}
+
+function toggleTxPanel(){
+  const wrap = $('tx-list-wrap');
+  const icon = $('tx-toggle-icon');
+  if(!wrap) return;
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? 'block' : 'none';
+  icon.textContent = hidden ? '▲ Hide' : '▼ Show';
+}
+
+function showBankLoadedBar(filename){
+  const bar = $('bank-loaded-bar');
+  const section = $('bank-drop-section');
+  if(bar){ bar.classList.remove('hidden'); }
+  if(section){ section.style.display = 'none'; }
+  const credits = bankTransactions.filter(t=>t.amount>0);
+  if(credits.length){
+    const dates = credits.map(t=>t.date).sort();
+    $t('bank-loaded-name', filename.length > 40 ? filename.slice(0,40)+'…' : filename);
+    $t('bank-loaded-range', `${fmtShort(dates[0])} – ${fmtShort(dates[dates.length-1])}`);
+    $t('bank-loaded-count', credits.length);
+  }
+}
+
+function clearBankData(){
+  bankTransactions = [];
+  ls.set('ndis-bank-txs', []);
+  const bar = $('bank-loaded-bar');
+  const section = $('bank-drop-section');
+  if(bar) bar.classList.add('hidden');
+  if(section) section.style.display = '';
+  $('recon-stats').classList.add('hidden');
+  $('recon-filters').classList.add('hidden');
+  $('recon-tx-panel').classList.add('hidden');
+  $('recon-results').innerHTML = '';
+  $('recon-clear-btn').style.display = 'none';
+  toast('Bank statement cleared.');
+}
+
+function populateReconClientFilter(){
+  const sel = $('recon-client-filter');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All clients</option>' +
+    clients.map(c=>`<option value="${c.id}"${c.id===cur?' selected':''}>${esc(c.name)}</option>`).join('');
+}
+
+function exportReconCSV(){
+  const invoices = getAllReconInvoices();
+  if(!invoices.length){ toast('No invoice data to export.'); return; }
+  const rows = [['Invoice','Date','Client','Plan Manager','Amount','Status','Matched Date','Bank Description']];
+  for(const inv of invoices){
+    const cl = clients.find(c=>c.id===inv.clientId);
+    const pm = cl?.pm?.org || inv.pmOrg || '';
+    const st = inv._reconStatus || (bankTransactions.length ? 'unmatched' : 'not checked');
+    rows.push([inv.invoiceNum, inv.date, inv.clientName, pm, inv.total.toFixed(2), st, inv._matchTx?.date||'', inv._matchTx?.desc||'']);
+  }
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='bank-reconciliation.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Reconciliation exported ✓');
+}
+
+// Load saved bank transactions on startup
+function loadSavedBankTxs(){
+  const saved = ls.get('ndis-bank-txs');
+  if(saved && saved.length){
+    bankTransactions = saved;
+    showBankLoadedBar('Saved statement');
+    runReconciliation();
+  }
+}
+
+
 <script src="https://accounts.google.com/gsi/client" async></script>
 
 <!-- ── DRIVE RECONNECT MODAL ── -->
