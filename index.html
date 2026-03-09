@@ -2737,10 +2737,14 @@ function parseANZCSV(text){
 }
 
 async function parseANZPDF(file){
-  // ANZ ONE Statement PDF format:
-  // Columns: Date | Transaction description | Debits ($) | Credits ($) | Balance ($)
-  // Date format: "DD MMM" with year appearing as a standalone heading row (e.g. "2025")
-  // pdf.js gives us each text item with an x position — we use that to identify columns.
+  // ANZ ONE Statement — text extracted per page, then parsed by regex.
+  // Format per transaction row (flattened from PDF columns):
+  //   DD MMM  DESCRIPTION  [debit_amt]  blank  [credit_amt]  balance
+  // Credits column is identified as the amount that appears BEFORE the running balance,
+  // with "blank" (empty cell) in the debit column position.
+  // We detect credits by looking for the pattern:
+  //   blank AMOUNT RUNNING_BALANCE  (i.e. debit cell was empty, credit cell has value)
+  // Year appears as a standalone number like "2025" before a group of transactions.
   const txs = [];
   try{
     if(typeof pdfjsLib === 'undefined'){
@@ -2750,114 +2754,173 @@ async function parseANZPDF(file){
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     const MONTHS = {JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12'};
-    const amtRe = /^\d{1,3}(?:,\d{3})*\.\d{2}$/;
-    const dateDMRe = /^(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)$/i;
-    const yearRe = /^(20\d{2})$/;
-
     const ab = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({data: ab}).promise;
 
-    let currentYear = new Date().getFullYear();
-
+    // Extract all text items with x,y positions from every page
+    let allItems = [];
     for(let p = 1; p <= pdf.numPages; p++){
       const page = await pdf.getPage(p);
-      const tc = await page.getTextContent();
       const vp = page.getViewport({scale:1});
-      const pageW = vp.width;
-
-      // Collect all text items with normalised x position (0=left, 1=right)
-      const items = tc.items.map(item => ({
-        text: item.str.trim(),
-        x: item.transform[4] / pageW,   // normalised x
-        y: item.transform[5],            // y position (for grouping into rows)
-      })).filter(i => i.text);
-
-      // Detect year headings
-      for(const item of items){
-        if(yearRe.test(item.text)) currentYear = parseInt(item.text);
-      }
-
-      // ANZ column x positions (normalised, approximate):
-      // Date:        0.00 – 0.15
-      // Description: 0.15 – 0.55
-      // Debits:      0.55 – 0.70  (right-aligned, so x varies; use > 0.54 && < 0.72)
-      // Credits:     0.70 – 0.82  (right-aligned)
-      // Balance:     0.82 – 1.00
-      // We identify Credits as numbers with x in roughly 0.68–0.84
-
-      // Group items into rows by y position (within 3 units = same row)
-      const rows = [];
-      for(const item of items){
-        const existing = rows.find(r => Math.abs(r.y - item.y) < 3);
-        if(existing) existing.items.push(item);
-        else rows.push({ y: item.y, items: [item] });
-      }
-      rows.sort((a,b) => b.y - a.y); // top to bottom (PDF y increases upward)
-
-      // Walk rows, track current transaction
-      let pendingDate = null;
-      let pendingDesc = [];
-
-      for(const row of rows){
-        const texts = row.items.sort((a,b) => a.x - b.x);
-
-        // Check for year marker
-        const yearItem = texts.find(t => yearRe.test(t.text));
-        if(yearItem){ currentYear = parseInt(yearItem.text); continue; }
-
-        // Check if this row starts a new transaction (first item is a DD MMM date)
-        const firstText = texts[0]?.text || '';
-        // Sometimes date is split: "10" and "FEB" as separate items close together
-        let dateStr = '';
-        if(dateDMRe.test(firstText)){
-          dateStr = firstText;
-        } else {
-          // Try combining first two items if they're both in the date column
-          const t0 = texts[0], t1 = texts[1];
-          if(t0 && t1 && t0.x < 0.12 && t1.x < 0.18){
-            const combined = t0.text + ' ' + t1.text;
-            if(dateDMRe.test(combined)) dateStr = combined;
-          }
-        }
-
-        // Find credit amount: number item with x in the Credits column (0.67–0.85)
-        const creditItem = texts.find(t => {
-          if(!amtRe.test(t.text.replace(/,/g,''))) return false;
-          // Actually test the raw text
-          return amtRe.test(t.text) && t.x >= 0.67 && t.x <= 0.86;
+      const tc = await page.getTextContent();
+      for(const item of tc.items){
+        const text = item.str.trim();
+        if(!text) continue;
+        allItems.push({
+          text,
+          x: item.transform[4],
+          y: Math.round(item.transform[5]),  // round y to group same-line items
+          page: p,
+          pageW: vp.width
         });
+      }
+    }
 
-        // Description items: x between 0.12 and 0.60
-        const descItems = texts.filter(t => t.x >= 0.10 && t.x < 0.60 && !dateDMRe.test(t.text) && !yearRe.test(t.text));
-        const descText = descItems.map(t=>t.text).join(' ').trim();
+    // Group into rows by page+y
+    const rowMap = new Map();
+    for(const item of allItems){
+      const key = `${item.page}|${item.y}`;
+      if(!rowMap.has(key)) rowMap.set(key, []);
+      rowMap.get(key).push(item);
+    }
 
-        if(dateStr){
-          // Save previous pending transaction if it had a credit
-          // (handled below by always checking creditItem)
-          const m = dateDMRe.exec(dateStr);
-          if(m){
-            const mo = MONTHS[m[2].toUpperCase()];
-            pendingDate = `${currentYear}-${mo}-${m[1].padStart(2,'0')}`;
-            pendingDesc = descText ? [descText] : [];
+    // Sort rows top-to-bottom (higher y = higher on page in PDF coords)
+    const rows = [...rowMap.values()]
+      .sort((a,b) => {
+        const pa = a[0].page, pb = b[0].page;
+        if(pa !== pb) return pa - pb;
+        return b[0].y - a[0].y; // descending y = top to bottom
+      });
+
+    // On each page, find the x positions of the Debits and Credits column headers
+    // by looking for rows containing "Debits" and "Credits" text items.
+    // We'll use these to set column boundaries per page.
+    const pageColBounds = new Map(); // page -> {debitX, creditX, balanceX}
+
+    for(const row of rows){
+      const texts = row.map(i=>i.text);
+      const debitIdx = texts.findIndex(t => /^Debits/i.test(t));
+      const creditIdx = texts.findIndex(t => /^Credits/i.test(t));
+      const balanceIdx = texts.findIndex(t => /^Balance/i.test(t));
+      if(debitIdx >= 0 && creditIdx >= 0){
+        const pg = row[0].page;
+        pageColBounds.set(pg, {
+          debitX:   row[debitIdx].x,
+          creditX:  row[creditIdx].x,
+          balanceX: balanceIdx >= 0 ? row[balanceIdx].x : 9999
+        });
+      }
+    }
+
+    // Now walk rows and extract credit transactions
+    let currentYear = new Date().getFullYear();
+    const yearRe = /^(20\d{2})$/;
+    const dateDMRe = /^(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)$/i;
+    const amtRe = /^\d{1,3}(?:,\d{3})*\.\d{2}$/;
+
+    let pendingDate = null;
+    let pendingDesc = [];
+
+    for(const row of rows){
+      const pg = row[0].page;
+      const cols = pageColBounds.get(pg);
+      const sortedItems = row.sort((a,b) => a.x - b.x);
+      const texts = sortedItems.map(i => i.text);
+      const joined = texts.join(' ');
+
+      // Detect year heading
+      if(texts.length === 1 && yearRe.test(texts[0])){
+        currentYear = parseInt(texts[0]);
+        continue;
+      }
+
+      // Detect column header row — skip
+      if(texts.some(t => /^Debits/i.test(t) || /^Credits/i.test(t))) continue;
+
+      // Skip summary/total rows
+      if(/TOTALS AT END|BALANCE BROUGHT|BALANCE CARRIED|OPENING BALANCE/i.test(joined)) continue;
+
+      // Check if row starts with a date (DD MMM)
+      // Date can be one item "10 FEB" or two items "10" "FEB"
+      let isoDate = null;
+      let descStartIdx = 0;
+      const firstTwo = texts.slice(0,2).join(' ');
+      if(dateDMRe.test(firstTwo)){
+        const m = dateDMRe.exec(firstTwo);
+        isoDate = `${currentYear}-${MONTHS[m[2].toUpperCase()]}-${m[1].padStart(2,'0')}`;
+        descStartIdx = 2;
+      } else if(dateDMRe.test(texts[0])){
+        const m = dateDMRe.exec(texts[0]);
+        isoDate = `${currentYear}-${MONTHS[m[2].toUpperCase()]}-${m[1].padStart(2,'0')}`;
+        descStartIdx = 1;
+      }
+
+      // Find credit amount using column x position if we have bounds,
+      // otherwise fall back to position heuristic
+      let creditAmt = null;
+      let debitAmt = null;
+
+      if(cols){
+        // Tolerance: item x within 80px of column header x
+        const tol = 80;
+        for(const item of sortedItems){
+          if(!amtRe.test(item.text)) continue;
+          const val = parseFloat(item.text.replace(/,/g,''));
+          const distFromCredit = Math.abs(item.x - cols.creditX);
+          const distFromDebit  = Math.abs(item.x - cols.debitX);
+          const distFromBal    = Math.abs(item.x - cols.balanceX);
+          if(distFromCredit < tol && distFromCredit < distFromDebit && distFromCredit < distFromBal){
+            creditAmt = val;
+          } else if(distFromDebit < tol && distFromDebit < distFromCredit && distFromDebit < distFromBal){
+            debitAmt = val;
           }
-        } else if(pendingDate && descText && !creditItem){
-          // Continuation description line
-          pendingDesc.push(descText);
         }
-
-        // If there's a credit on this row, emit it
-        if(creditItem && pendingDate){
-          const amt = parseFloat(creditItem.text.replace(/,/g,''));
-          if(amt > 0){
-            txs.push({
-              date: pendingDate,
-              amount: amt,
-              desc: pendingDesc.join(' '),
-              raw: texts.map(t=>t.text).join(' ')
-            });
+      } else {
+        // Fallback: no column bounds detected.
+        // In ANZ statements: row amounts appear as [debit] [credit] [balance]
+        // If debit cell is empty, the first amount IS the credit, second is balance.
+        // If debit cell has a value, first=debit, second=credit (rare), third=balance.
+        // Simplest heuristic: collect all amounts, last = balance, second-to-last = credit if no debit,
+        // or check if description contains credit keywords.
+        const amts = sortedItems.filter(i => amtRe.test(i.text)).map(i => ({
+          val: parseFloat(i.text.replace(/,/g,'')),
+          x: i.x
+        }));
+        if(amts.length >= 2){
+          // Last amount = running balance (largest x = rightmost)
+          amts.sort((a,b) => a.x - b.x);
+          const bal = amts[amts.length - 1];
+          const rest = amts.slice(0, -1);
+          const upper = joined.toUpperCase();
+          const isCreditKeyword = /TRANSFER FROM|PAYMENT FROM|DIRECT CREDIT|DEPOSIT|MEDICARE BENEFIT|VISA DEBIT DEPOSIT/.test(upper);
+          if(isCreditKeyword && rest.length === 1){
+            creditAmt = rest[0].val;
+          } else if(rest.length === 2){
+            // debit then credit — credit is second
+            creditAmt = rest[1].val;
+          } else if(rest.length === 1 && isCreditKeyword){
+            creditAmt = rest[0].val;
           }
-          // Don't clear pendingDate — same date can have multiple txs
         }
+      }
+
+      if(isoDate){
+        pendingDate = isoDate;
+        pendingDesc = texts.slice(descStartIdx).filter(t => !amtRe.test(t)).join(' ').trim();
+        pendingDesc = pendingDesc ? [pendingDesc] : [];
+      } else if(pendingDate && !creditAmt && !debitAmt){
+        // Continuation description line
+        const descPart = texts.filter(t => !amtRe.test(t)).join(' ').trim();
+        if(descPart) pendingDesc.push(descPart);
+      }
+
+      if(creditAmt && creditAmt > 0 && pendingDate){
+        txs.push({
+          date: pendingDate,
+          amount: creditAmt,
+          desc: pendingDesc.join(' '),
+          raw: joined
+        });
       }
     }
   } catch(err){
@@ -2866,6 +2929,7 @@ async function parseANZPDF(file){
   }
   return txs;
 }
+
 
 function runReconciliation(){
   // Get all invoices: from app history + imported
