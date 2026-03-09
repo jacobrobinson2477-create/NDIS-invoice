@@ -785,11 +785,11 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
              ondragover="bankDragOver(event)" ondragleave="bankDragLeave(event)" ondrop="bankDrop(event)"
              onclick="document.getElementById('bank-file-input').click()">
           <div class="bank-drop-icon">🏦</div>
-          <div class="bank-drop-title">Drop your ANZ bank statement here</div>
-          <div class="bank-drop-sub">Supports <span>PDF statements</span> or <span>CSV transaction exports</span><br>ANZ Internet Banking → Transactions → Export</div>
+          <div class="bank-drop-title">Drop your ANZ CSV export here</div>
+          <div class="bank-drop-sub"><span>CSV recommended</span> — more accurate than PDF<br>ANZ Internet Banking → Account → Transactions → Export as CSV<br>PDF statements also accepted (drop multiple files to merge)</div>
         </div>
         <input type="file" id="bank-file-input" accept=".pdf,.csv,.txt" multiple style="display:none" onchange="bankFileSelected(event)"/>
-        <div class="disc" style="margin-top:0;">💡 <strong>How to export from ANZ:</strong> Internet Banking → Accounts → Select account → Transactions → Export → CSV format. Or download your PDF statements. Multiple files can be dropped at once.</div>
+        <div class="disc" style="margin-top:0;">💡 <strong>Best results with CSV:</strong> ANZ Internet Banking → Accounts → <em>your account</em> → Transactions → <strong>Export</strong> → select date range → <strong>CSV</strong>. Export separate files for each period if needed and drop them all at once — duplicates are removed automatically.</div>
       </div>
 
       <!-- Loaded statement info bar -->
