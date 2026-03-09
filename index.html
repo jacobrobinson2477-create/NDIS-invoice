@@ -2932,48 +2932,42 @@ async function parseANZPDF(file){
 
 
 function runReconciliation(){
-  // Get all invoices: from app history + imported
   const allInvoices = getAllReconInvoices();
   if(!allInvoices.length){ toast('No invoices found — create some invoices first.'); return; }
-  // For each invoice, try to match a bank credit
-  const used = new Set(); // indices of bankTransactions already matched
+
+  // Build a lookup: amount (to 2dp string) -> array of tx indices
+  // Pure amount matching — no description scoring, no bonuses.
+  const amtIndex = new Map();
+  for(let i = 0; i < bankTransactions.length; i++){
+    const key = bankTransactions[i].amount.toFixed(2);
+    if(!amtIndex.has(key)) amtIndex.set(key, []);
+    amtIndex.get(key).push(i);
+  }
+
+  const used = new Set();
   for(const inv of allInvoices){
-    inv._match = null;
     inv._matchTx = null;
-    // Don't skip 'sent' invoices — bank statement is source of truth.
-    // If a matching deposit exists, mark it matched regardless of app status.
-    // Try to match by amount within a date window
+    const key = inv.total.toFixed(2);
+    const candidates = amtIndex.get(key) || [];
     const invDate = new Date(inv.date+'T12:00:00');
-    const matchWindow = 90; // days before/after invoice date to look for payment
-    let bestMatch = null, bestScore = -1;
-    for(let i=0;i<bankTransactions.length;i++){
+
+    // Find the closest unused bank credit with this exact amount,
+    // paid between 30 days before and 90 days after the invoice date.
+    let bestIdx = -1, bestDiff = Infinity;
+    for(const i of candidates){
       if(used.has(i)) continue;
       const tx = bankTransactions[i];
       const txDate = new Date(tx.date+'T12:00:00');
       const dayDiff = (txDate - invDate) / 86400000;
-      if(dayDiff < -30 || dayDiff > matchWindow) continue; // payment should come after invoice, with some grace
-      // Amount match (exact or within $0.01)
-      const amtDiff = Math.abs(tx.amount - inv.total);
-      if(amtDiff > 0.02) continue;
-      // Score: closer in time = higher score
-      const score = 1000 - Math.abs(dayDiff);
-      // Bonus: description matches client name or plan manager
-      const upper = tx.desc.toUpperCase();
-      const cl = clients.find(c=>c.id===inv.clientId);
-      const pmOrg = cl?.pm?.org || inv.pmOrg || '';
-      const nameWords = (inv.clientName||'').toUpperCase().split(' ');
-      const pmWords = pmOrg.toUpperCase().split(' ').filter(w=>w.length>3);
-      const nameMatch = nameWords.some(w=>w.length>2 && upper.includes(w));
-      const pmMatch = pmWords.some(w=>upper.includes(w));
-      const bonus = (nameMatch ? 200 : 0) + (pmMatch ? 300 : 0);
-      if(score + bonus > bestScore){ bestScore = score + bonus; bestMatch = {i, tx}; }
+      if(dayDiff < -30 || dayDiff > 90) continue;
+      if(Math.abs(dayDiff) < bestDiff){ bestDiff = Math.abs(dayDiff); bestIdx = i; }
     }
-    if(bestMatch){
-      used.add(bestMatch.i);
+
+    if(bestIdx >= 0){
+      used.add(bestIdx);
       inv._reconStatus = 'matched';
-      inv._matchTx = bestMatch.tx;
+      inv._matchTx = bankTransactions[bestIdx];
     } else {
-      // If the invoice is 'sent' and no match found, it's still pending
       inv._reconStatus = (inv.payStatus === 'sent' || inv.payStatus === 'pending')
         ? 'pending'
         : bankTransactions.length > 0 ? 'unmatched' : 'unknown';
