@@ -2630,44 +2630,108 @@ async function processBankFiles(files){
 function parseANZCSV(text){
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const txs = [];
-  // ANZ CSV formats vary — try to detect header
-  // Common ANZ export: Date,Description,Amount,Balance or Date,Amount,Description
-  for(const line of lines){
-    if(!line || line.toLowerCase().includes('date') || line.toLowerCase().includes('transaction')) continue;
-    // Try comma split, handle quoted fields
-    const cols = line.match(/(".*?"|[^,]+)(?:,|$)/g)?.map(c => c.replace(/^"|"$|,$/g,'').trim()) || [];
-    if(cols.length < 3) continue;
-    // Find a date column
-    const dateRx = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/;
-    let dateCol = -1, amtCol = -1, descCol = -1;
-    for(let i=0;i<cols.length;i++){
-      if(dateRx.test(cols[i])) { dateCol = i; break; }
-    }
-    if(dateCol < 0) continue;
-    // Find amount — look for numeric with optional minus/plus
-    for(let i=0;i<cols.length;i++){
-      if(i===dateCol) continue;
-      const v = cols[i].replace(/[$,]/g,'');
-      if(!isNaN(parseFloat(v)) && v !== '') { amtCol = i; break; }
-    }
-    if(amtCol < 0) continue;
-    // Description is the remaining non-empty column
-    for(let i=0;i<cols.length;i++){
-      if(i===dateCol || i===amtCol) continue;
-      if(cols[i] && isNaN(parseFloat(cols[i].replace(/[$,]/g,'')))) { descCol = i; break; }
-    }
-    const rawDate = cols[dateCol];
-    const m = dateRx.exec(rawDate);
-    if(!m) continue;
+
+  // ANZ Internet Banking CSV export formats:
+  // Format A (Statement): Date, Description, Amount, Balance
+  // Format B (Transaction report): Date, Amount, Description, Debit/Credit flag
+  // Format C (older): Date, Reference, Description, Debit, Credit, Balance
+  // Strategy: for every non-header row, find a date and ALL numeric columns,
+  // then pick the one most likely to be a credit amount.
+
+  // Parse a DD/MM/YYYY or DD-MM-YYYY or YYYY-MM-DD date string -> ISO
+  function toISO(s){
+    s = s.trim();
+    // Already ISO
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // DD/MM/YYYY or DD-MM-YYYY
+    const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if(!m) return null;
     let [,d,mo,y] = m;
-    if(y.length===2) y = '20'+y;
-    const iso = `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    const amt = parseFloat(cols[amtCol].replace(/[$,]/g,''));
-    if(isNaN(amt)) continue;
-    // Credits only (positive amounts coming in) — for ANZ CSV credits are positive
-    if(amt > 0){
-      txs.push({ date: iso, amount: amt, desc: descCol >= 0 ? cols[descCol] : '', raw: line });
+    if(y.length===2) y='20'+y;
+    return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+
+  // Split a CSV line respecting quoted fields
+  function splitCSV(line){
+    const out = [];
+    let cur = '', inQ = false;
+    for(let i=0;i<line.length;i++){
+      const c = line[i];
+      if(c==='"'){ inQ=!inQ; continue; }
+      if(c===',' && !inQ){ out.push(cur.trim()); cur=''; continue; }
+      cur+=c;
     }
+    out.push(cur.trim());
+    return out;
+  }
+
+  // Detect header row
+  function isHeader(cols){
+    const joined = cols.join(' ').toLowerCase();
+    return /date|description|transaction|balance|amount|debit|credit/.test(joined);
+  }
+
+  for(const line of lines){
+    if(!line) continue;
+    const cols = splitCSV(line);
+    if(cols.length < 2) continue;
+    if(isHeader(cols)) continue;
+
+    // Find date column
+    let isoDate = null;
+    for(const col of cols){
+      const d = toISO(col);
+      if(d){ isoDate = d; break; }
+    }
+    if(!isoDate) continue;
+
+    // Collect all numeric values from non-date columns
+    const nums = [];
+    for(let i=0;i<cols.length;i++){
+      const v = cols[i].replace(/[$,\s]/g,'');
+      const n = parseFloat(v);
+      if(!isNaN(n) && v !== '' && !toISO(cols[i])){
+        nums.push({ idx:i, val:n, raw:cols[i] });
+      }
+    }
+    if(!nums.length) continue;
+
+    // Find description: longest non-numeric, non-date column
+    let desc = '';
+    for(const col of cols){
+      if(toISO(col)) continue;
+      const v = col.replace(/[$,\s]/g,'');
+      if(!isNaN(parseFloat(v)) && v !== '') continue;
+      if(col.length > desc.length) desc = col;
+    }
+
+    // Determine credit amount:
+    // - If there's a column explicitly labelled Credit (index), use that
+    // - If there are separate Debit/Credit columns, the Credit column is usually index 4 or 5
+    // - Otherwise: take the first positive number that isn't obviously a running balance
+    //   (balances tend to be the last numeric column and much larger)
+    let creditAmt = null;
+
+    // Heuristic: if exactly one positive number, that's it
+    const positives = nums.filter(n=>n.val > 0);
+    if(positives.length === 1){
+      creditAmt = positives[0].val;
+    } else if(positives.length > 1){
+      // Drop the last numeric (likely running balance) if it's largest
+      const sorted = [...positives].sort((a,b)=>b.val-a.val);
+      const withoutLast = positives.slice(0, -1).filter(n=>n.val>0);
+      // Pick smallest positive that's > 0 and < 100000 (reasonable payment amount)
+      const candidates = positives.filter(n=>n.val>0&&n.val<100000);
+      if(candidates.length){
+        // Prefer the one that's NOT the last column (last = balance)
+        const notLast = candidates.filter(n=>n.idx < cols.length-1);
+        creditAmt = (notLast.length ? notLast : candidates)[0].val;
+      }
+    }
+
+    if(!creditAmt || creditAmt <= 0) continue;
+
+    txs.push({ date: isoDate, amount: creditAmt, desc: desc || '', raw: line });
   }
   return txs;
 }
@@ -2735,10 +2799,8 @@ function runReconciliation(){
   for(const inv of allInvoices){
     inv._match = null;
     inv._matchTx = null;
-    if(inv.payStatus === 'sent' || inv.payStatus === 'pending'){
-      inv._reconStatus = 'pending';
-      continue;
-    }
+    // Don't skip 'sent' invoices — bank statement is source of truth.
+    // If a matching deposit exists, mark it matched regardless of app status.
     // Try to match by amount within a date window
     const invDate = new Date(inv.date+'T12:00:00');
     const matchWindow = 90; // days before/after invoice date to look for payment
@@ -2770,7 +2832,10 @@ function runReconciliation(){
       inv._reconStatus = 'matched';
       inv._matchTx = bestMatch.tx;
     } else {
-      inv._reconStatus = bankTransactions.length > 0 ? 'unmatched' : 'unknown';
+      // If the invoice is 'sent' and no match found, it's still pending
+      inv._reconStatus = (inv.payStatus === 'sent' || inv.payStatus === 'pending')
+        ? 'pending'
+        : bankTransactions.length > 0 ? 'unmatched' : 'unknown';
     }
   }
   renderReconStats(allInvoices);
