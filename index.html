@@ -2967,21 +2967,49 @@ function runReconciliation(){
   }
 
   // ── PASS 2: batch / combined payment matching ────────────────────────────────
-  // For each still-unmatched credit, try to find a subset of unmatched invoices
-  // (from the same PM, within the date window) whose amounts sum to the credit.
-  // We search combinations of up to 6 invoices — covers all real-world cases.
-  const unmatchedInvs = allInvoices.filter(inv => inv._reconStatus === 'unknown');
+  // Helpers defined once outside the loop (redeclaring inside a loop causes
+  // silent failures in strict-mode JS engines).
+
+  function _batchCombo(arr, k, targetCents){
+    // Returns the first combination of k items whose amounts (in cents) sum to target.
+    let found = null;
+    function pick(start, rem, chosen, sum){
+      if(found) return;
+      if(rem === 0){
+        if(Math.abs(sum - targetCents) <= 2) found = chosen.slice();
+        return;
+      }
+      for(let i = start; i <= arr.length - rem; i++){
+        chosen.push(i);
+        pick(i+1, rem-1, chosen, sum + Math.round(arr[i].total * 100));
+        chosen.pop();
+        if(found) return;
+      }
+    }
+    pick(0, k, [], 0);
+    return found ? found.map(i => arr[i]) : null;
+  }
+
+  function _findSubset(items, targetCents, maxDepth){
+    const sub = items.slice(0, 20); // cap for performance
+    for(let size = 2; size <= Math.min(maxDepth, sub.length); size++){
+      const result = _batchCombo(sub, size, targetCents);
+      if(result) return result;
+    }
+    return null;
+  }
 
   for(let ci = 0; ci < credits.length; ci++){
     if(usedTx.has(ci)) continue;
-    const tx     = credits[ci];
-    const pm     = txPM(tx.desc);
-    if(!pm) continue;                      // not a known plan-manager credit
-    const txDate = new Date(tx.date+'T12:00:00');
-    const target = Math.round(tx.amount * 100);   // work in cents to avoid float drift
+    const tx   = credits[ci];
+    const pm   = txPM(tx.desc);
+    if(!pm) continue;
+    const txDate  = new Date(tx.date+'T12:00:00');
+    const target  = Math.round(tx.amount * 100);
 
-    // Candidate invoices: same PM, not yet matched, paid within window
-    const cands = unmatchedInvs.filter(inv => {
+    // Re-query live unmatched invoices each iteration so already-batched ones
+    // are never re-used as candidates.
+    const cands = allInvoices.filter(inv => {
       if(inv._reconStatus !== 'unknown') return false;
       const invPm = (clients.find(c=>c.id===inv.clientId)?.pm?.org) || inv.pmOrg || '';
       if(invPm !== pm) return false;
@@ -2991,45 +3019,15 @@ function runReconciliation(){
 
     if(!cands.length) continue;
 
-    // Subset-sum search (up to 6 items deep)
-    function findSubset(items, target, maxDepth){
-      // Iterative combinations via bitmask for small sets, recursive otherwise
-      const n = Math.min(items.length, 20); // cap at 20 candidates for performance
-      const sub = items.slice(0, n);
-      for(let size = 2; size <= Math.min(maxDepth, n); size++){
-        const result = combo(sub, size, target);
-        if(result) return result;
-      }
-      return null;
-    }
-
-    function combo(arr, k, target){
-      const result = [];
-      function pick(start, rem, chosen, sum){
-        if(rem === 0){
-          if(Math.abs(sum - target) <= 2){ result.push([...chosen]); return true; }
-          return false;
-        }
-        for(let i = start; i <= arr.length - rem; i++){
-          chosen.push(i);
-          if(pick(i+1, rem-1, chosen, sum + Math.round(arr[i].total*100))) return true;
-          chosen.pop();
-        }
-        return false;
-      }
-      pick(0, k, [], 0);
-      return result.length ? result[0].map(i=>arr[i]) : null;
-    }
-
-    const batch = findSubset(cands, target, 6);
+    const batch = _findSubset(cands, target, 6);
     if(batch){
       usedTx.add(ci);
-      const batchNums = batch.map(i=>i.invoiceNum);
+      const batchNums = batch.map(i => i.invoiceNum);
       for(const inv of batch){
         inv._reconStatus = 'matched';
         inv._batchTx     = tx;
         inv._matchTx     = tx;
-        inv._batchNums   = batchNums.filter(n=>n!==inv.invoiceNum);
+        inv._batchNums   = batchNums.filter(n => n !== inv.invoiceNum);
         inv._matchNote   = `batch payment (${batchNums.length} invoices)`;
       }
     }
