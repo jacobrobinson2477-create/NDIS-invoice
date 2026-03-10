@@ -833,7 +833,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
       <div id="recon-tx-panel" class="hidden" style="margin-top:20px;">
         <div class="card">
           <div class="card-hd" style="cursor:pointer;" onclick="toggleTxPanel()">
-            <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📊</span> Bank Credits Detected (<span id="tx-count">0</span>)</span>
+            <span style="display:flex;align-items:center;gap:8px;"><span class="card-hd-icon">📊</span> All Bank Credits (<span id="tx-count">0</span>)</span>
             <span id="tx-toggle-icon" style="color:var(--faint);font-size:12px;">▼ Show</span>
           </div>
           <div id="tx-list-wrap" style="display:none;">
@@ -2599,51 +2599,39 @@ async function processBankFiles(files){
   }
   if(!allTx.length){ toast('⚠ No transactions found — try the CSV export format.'); return; }
 
-  // Filter to current FY only (1 July 2025 onwards)
-  allTx = allTx.filter(tx => tx.date >= '2025-07-01');
-  if(!allTx.length){ toast('⚠ No transactions found on or after 1 July 2025.'); return; }
-
-  // Build the set of invoice amounts we actually care about — only keep bank
-  // credits whose amount exactly matches at least one invoice. This eliminates
-  // personal transfers, ATM credits, refunds, etc. that would cause false matches.
-  const invoiceAmounts = new Set(
-    [...(invoiceHistory||[]), ...(importedInvoices||[])].map(inv => inv.total.toFixed(2))
-  );
-  allTx = allTx.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
-
   // Deduplicate: overlapping statement exports produce duplicate rows.
-  // Key on date+amount — keep only the first occurrence per key.
-  const seenCount = new Map();
+  // Key on date+amount+desc to allow same amount on same day from different payers.
+  const seenKeys = new Map();
   bankTransactions = allTx.filter(tx => {
-    const k = `${tx.date}|${tx.amount.toFixed(2)}`;
-    const n = (seenCount.get(k)||0) + 1;
-    seenCount.set(k, n);
+    const k = `${tx.date}|${tx.amount.toFixed(2)}|${tx.desc.slice(0,20)}`;
+    const n = (seenKeys.get(k)||0) + 1;
+    seenKeys.set(k, n);
     return n === 1;
   }).sort((a,b) => a.date.localeCompare(b.date));
-  
+
   ls.set('ndis-bank-txs', bankTransactions);
   showBankLoadedBar(files.map(f=>f.name).join(', '));
   runReconciliation();
-  toast(`✓ Loaded ${bankTransactions.length} transactions`);
+  const creditCount = bankTransactions.filter(t=>t.amount>0).length;
+  toast(`✓ Loaded ${bankTransactions.length} transactions (${creditCount} credits)`);
 }
 
 function parseANZCSV(text){
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const txs = [];
 
-  // ANZ Internet Banking CSV export formats:
-  // Format A (Statement): Date, Description, Amount, Balance
-  // Format B (Transaction report): Date, Amount, Description, Debit/Credit flag
-  // Format C (older): Date, Reference, Description, Debit, Credit, Balance
-  // Strategy: for every non-header row, find a date and ALL numeric columns,
-  // then pick the one most likely to be a credit amount.
+  // ANZ Internet Banking CSV export format:
+  // Col 0: Date (DD/MM/YYYY)
+  // Col 1: Amount (signed: positive = credit, negative = debit)
+  // Col 2: Description
+  // Col 3+: (optional) further fields, details, balance, etc.
+  //
+  // We parse ALL rows (credits AND debits) so the reconciliation engine
+  // can work with the full picture. Credits have amount > 0.
 
-  // Parse a DD/MM/YYYY or DD-MM-YYYY or YYYY-MM-DD date string -> ISO
   function toISO(s){
     s = s.trim();
-    // Already ISO
     if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // DD/MM/YYYY or DD-MM-YYYY
     const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
     if(!m) return null;
     let [,d,mo,y] = m;
@@ -2651,7 +2639,6 @@ function parseANZCSV(text){
     return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
   }
 
-  // Split a CSV line respecting quoted fields
   function splitCSV(line){
     const out = [];
     let cur = '', inQ = false;
@@ -2665,7 +2652,6 @@ function parseANZCSV(text){
     return out;
   }
 
-  // Detect header row
   function isHeader(cols){
     const joined = cols.join(' ').toLowerCase();
     return /date|description|transaction|balance|amount|debit|credit/.test(joined);
@@ -2677,61 +2663,30 @@ function parseANZCSV(text){
     if(cols.length < 2) continue;
     if(isHeader(cols)) continue;
 
-    // Find date column
-    let isoDate = null;
-    for(const col of cols){
-      const d = toISO(col);
-      if(d){ isoDate = d; break; }
-    }
+    // Col 0 must be a date
+    const isoDate = toISO(cols[0]);
     if(!isoDate) continue;
 
-    // Collect all numeric values from non-date columns
-    const nums = [];
-    for(let i=0;i<cols.length;i++){
-      const v = cols[i].replace(/[$,\s]/g,'');
-      const n = parseFloat(v);
-      if(!isNaN(n) && v !== '' && !toISO(cols[i])){
-        nums.push({ idx:i, val:n, raw:cols[i] });
-      }
+    // Col 1 is the signed amount
+    const rawAmt = cols[1].replace(/[$,\s]/g,'');
+    const amount = parseFloat(rawAmt);
+    if(isNaN(amount)) continue;
+
+    // Col 2 is the primary description; remaining cols may have extra detail
+    // Build full description by joining non-empty cols from index 2 onwards,
+    // skipping pure numeric columns (balance, running totals).
+    const descParts = [];
+    for(let i = 2; i < cols.length; i++){
+      const v = cols[i].trim();
+      if(!v) continue;
+      // Skip if purely numeric (balance column)
+      const stripped = v.replace(/[$,]/g,'');
+      if(!isNaN(parseFloat(stripped)) && stripped !== '') continue;
+      descParts.push(v);
     }
-    if(!nums.length) continue;
+    const desc = descParts.join(' ').trim() || cols[2] || '';
 
-    // Find description: longest non-numeric, non-date column
-    let desc = '';
-    for(const col of cols){
-      if(toISO(col)) continue;
-      const v = col.replace(/[$,\s]/g,'');
-      if(!isNaN(parseFloat(v)) && v !== '') continue;
-      if(col.length > desc.length) desc = col;
-    }
-
-    // Determine credit amount:
-    // - If there's a column explicitly labelled Credit (index), use that
-    // - If there are separate Debit/Credit columns, the Credit column is usually index 4 or 5
-    // - Otherwise: take the first positive number that isn't obviously a running balance
-    //   (balances tend to be the last numeric column and much larger)
-    let creditAmt = null;
-
-    // Heuristic: if exactly one positive number, that's it
-    const positives = nums.filter(n=>n.val > 0);
-    if(positives.length === 1){
-      creditAmt = positives[0].val;
-    } else if(positives.length > 1){
-      // Drop the last numeric (likely running balance) if it's largest
-      const sorted = [...positives].sort((a,b)=>b.val-a.val);
-      const withoutLast = positives.slice(0, -1).filter(n=>n.val>0);
-      // Pick smallest positive that's > 0 and < 100000 (reasonable payment amount)
-      const candidates = positives.filter(n=>n.val>0&&n.val<100000);
-      if(candidates.length){
-        // Prefer the one that's NOT the last column (last = balance)
-        const notLast = candidates.filter(n=>n.idx < cols.length-1);
-        creditAmt = (notLast.length ? notLast : candidates)[0].val;
-      }
-    }
-
-    if(!creditAmt || creditAmt <= 0) continue;
-
-    txs.push({ date: isoDate, amount: creditAmt, desc: desc || '', raw: line });
+    txs.push({ date: isoDate, amount, desc, raw: line });
   }
   return txs;
 }
@@ -2935,48 +2890,110 @@ function runReconciliation(){
   const allInvoices = getAllReconInvoices();
   if(!allInvoices.length){ toast('No invoices found — create some invoices first.'); return; }
 
-  // Only consider bank credits whose amount exactly matches an invoice — filter out
-  // personal transfers, ATM credits, refunds etc. even if cached from a previous load.
-  const invoiceAmounts = new Set(allInvoices.map(inv => inv.total.toFixed(2)));
-  const eligibleTx = bankTransactions.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
+  // Only work with credit transactions (positive amounts = money IN)
+  const credits = bankTransactions.filter(tx => tx.amount > 0);
 
-  // Build a lookup: amount -> array of eligible tx indices
-  const amtIndex = new Map();
-  for(let i = 0; i < eligibleTx.length; i++){
-    const key = eligibleTx[i].amount.toFixed(2);
-    if(!amtIndex.has(key)) amtIndex.set(key, []);
-    amtIndex.get(key).push(i);
+  // ── Keyword helpers ──────────────────────────────────────────────────────────
+  // Extract searchable tokens from a string (uppercase words, length >= 3)
+  function tokens(s){ return (s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>=3); }
+
+  // Score how well a bank description matches a client/plan-manager name.
+  // Returns 0–1 (1 = strong keyword match).
+  function descMatchScore(txDesc, clientName, pmOrg){
+    const desc = txDesc.toUpperCase();
+    const sources = [clientName, pmOrg].filter(Boolean);
+    let best = 0;
+    for(const src of sources){
+      const toks = tokens(src);
+      if(!toks.length) continue;
+      const hits = toks.filter(t => desc.includes(t)).length;
+      const score = hits / toks.length;
+      if(score > best) best = score;
+    }
+    // Also check known payer keywords that appear in ANZ descriptions
+    const PAYER_PATTERNS = [
+      { re: /ILLAWARRA\s*DISABI/i,   hint: 'Illawarra Disability' },
+      { re: /JUST\s*BETTER\s*CARE/i, hint: 'Just Better Care' },
+      { re: /PLAN\s*PARTNERS/i,      hint: 'Plan Partners' },
+      { re: /NDIS.PLANMANAGED/i,     hint: 'NDIS Plan Managed' },
+      { re: /MCARE\s*BENEFITS/i,     hint: 'Mcare Benefits' },
+      { re: /GBS\s*INTERNET/i,       hint: 'GBS' },
+    ];
+    for(const p of PAYER_PATTERNS){
+      if(p.re.test(txDesc)){
+        // Check if the client or PM name contains a matching word
+        const hintToks = tokens(p.hint);
+        const matchSrc = sources.some(s => hintToks.some(t => s.toUpperCase().includes(t)));
+        if(matchSrc && best < 0.8) best = 0.8;
+      }
+    }
+    return best;
   }
 
-  const used = new Set();
+  // ── Match each invoice ───────────────────────────────────────────────────────
+  const used = new Set(); // indices into credits[] that have been assigned
+
   for(const inv of allInvoices){
     inv._matchTx = null;
-    const key = inv.total.toFixed(2);
-    const candidates = amtIndex.get(key) || [];
+    inv._matchNote = '';
+    const cl = clients.find(c=>c.id===inv.clientId);
+    const pmOrg = cl?.pm?.org || inv.pmOrg || '';
+    const clientName = inv.clientName || '';
     const invDate = new Date(inv.date+'T12:00:00');
+    const invAmt = inv.total;
 
-    // Find the closest unused bank credit with this exact amount,
-    // paid between 30 days before and 90 days after the invoice date.
-    let bestIdx = -1, bestDiff = Infinity;
-    for(const i of candidates){
+    let bestIdx = -1;
+    let bestScore = -1;
+
+    for(let i = 0; i < credits.length; i++){
       if(used.has(i)) continue;
-      const tx = eligibleTx[i];
+      const tx = credits[i];
       const txDate = new Date(tx.date+'T12:00:00');
       const dayDiff = (txDate - invDate) / 86400000;
-      if(dayDiff < -30 || dayDiff > 90) continue;
-      if(Math.abs(dayDiff) < bestDiff){ bestDiff = Math.abs(dayDiff); bestIdx = i; }
+
+      // Only look at payments between 60 days before and 120 days after invoice date
+      if(dayDiff < -60 || dayDiff > 120) continue;
+
+      const txAmt = tx.amount;
+      const amtDiff = Math.abs(txAmt - invAmt);
+      const amtRatio = amtDiff / invAmt; // 0 = exact match
+
+      // Exact amount match scores highest
+      let amtScore = 0;
+      if(amtDiff < 0.02)       amtScore = 1.0;   // exact (within rounding)
+      else if(amtRatio < 0.01) amtScore = 0.85;  // within 1%
+      else continue; // We require a close amount match; no partial payment guessing
+
+      // Keyword/payer name match score
+      const nameScore = descMatchScore(tx.desc, clientName, pmOrg);
+
+      // Recency bonus: closer in time = better (within the 180-day window)
+      const recencyScore = 1 - Math.min(Math.abs(dayDiff), 180) / 180;
+
+      // Weighted total score
+      // Amount is the most important signal, then payer name, then recency
+      const total = amtScore * 0.6 + nameScore * 0.3 + recencyScore * 0.1;
+
+      if(total > bestScore){
+        bestScore = total;
+        bestIdx = i;
+      }
     }
 
     if(bestIdx >= 0){
       used.add(bestIdx);
       inv._reconStatus = 'matched';
-      inv._matchTx = eligibleTx[bestIdx];
+      inv._matchTx = credits[bestIdx];
+      // Note if it was matched by name vs amount-only
+      const nameS = descMatchScore(credits[bestIdx].desc, clientName, pmOrg);
+      inv._matchNote = nameS >= 0.5 ? 'amount + payer name' : 'amount only';
     } else {
       inv._reconStatus = (inv.payStatus === 'sent' || inv.payStatus === 'pending')
         ? 'pending'
         : bankTransactions.length > 0 ? 'unmatched' : 'unknown';
     }
   }
+
   renderReconStats(allInvoices);
   renderReconResults();
   renderBankTxList();
@@ -2985,7 +3002,6 @@ function runReconciliation(){
   $('recon-filters').classList.remove('hidden');
   $('recon-tx-panel').classList.remove('hidden');
   $('recon-clear-btn').style.display = '';
-  // Populate client filter
   populateReconClientFilter();
 }
 
@@ -3043,8 +3059,9 @@ function renderReconResults(){
       const cl = clients.find(c=>c.id===inv.clientId);
       const pm = cl?.pm?.org || inv.pmOrg || 'Unknown PM';
       const dot = st==='matched'?'✓':st==='pending'?'⏳':'✗';
+      const matchNote = inv._matchNote ? ` <span style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace;">(${esc(inv._matchNote)})</span>` : '';
       const matchInfo = inv._matchTx
-        ? `<div class="recon-match-info">Matched bank credit ${fmtShort(inv._matchTx.date)} — ${esc(inv._matchTx.desc.slice(0,60))}</div>`
+        ? `<div class="recon-match-info">Matched bank credit ${fmtShort(inv._matchTx.date)} — ${esc(inv._matchTx.desc.slice(0,70))}${matchNote}</div>`
         : st==='unmatched' ? `<div class="recon-unmatch-info">No matching bank deposit found</div>` : '';
       html += `<div class="recon-row ${st}">
         <div class="recon-status-dot ${st}">${dot}</div>
@@ -3063,17 +3080,34 @@ function renderReconResults(){
 }
 
 function renderBankTxList(){
-  const invoiceAmounts = new Set(getAllReconInvoices().map(inv => inv.total.toFixed(2)));
-  const credits = bankTransactions.filter(tx => invoiceAmounts.has(tx.amount.toFixed(2)));
+  // Show all credits from the bank statement
+  const credits = bankTransactions.filter(tx => tx.amount > 0);
   $('tx-count').textContent = credits.length;
   const el = $('bank-tx-list');
   if(!el) return;
-  el.innerHTML = credits.map(tx=>`
-    <div class="bank-tx-row credited">
+
+  // Build a set of matched tx dates+amounts for highlighting
+  const matchedKeys = new Set();
+  getAllReconInvoices().forEach(inv => {
+    if(inv._matchTx) matchedKeys.add(`${inv._matchTx.date}|${inv._matchTx.amount.toFixed(2)}|${inv._matchTx.desc.slice(0,20)}`);
+  });
+
+  // Sort credits newest first for display
+  const sorted = [...credits].sort((a,b) => b.date.localeCompare(a.date));
+
+  el.innerHTML = sorted.map(tx=>{
+    const key = `${tx.date}|${tx.amount.toFixed(2)}|${tx.desc.slice(0,20)}`;
+    const isMatched = matchedKeys.has(key);
+    const badge = isMatched
+      ? `<span style="font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;border-radius:4px;padding:1px 6px;white-space:nowrap;">MATCHED</span>`
+      : `<span style="font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;border-radius:4px;padding:1px 6px;white-space:nowrap;">UNMATCHED</span>`;
+    return `<div class="bank-tx-row credited" style="${isMatched?'opacity:0.6;':''}">
       <div class="bank-tx-date">${fmtShort(tx.date)}</div>
       <div class="bank-tx-desc" title="${esc(tx.desc)}">${esc(tx.desc||'—')}</div>
+      ${badge}
       <div class="bank-tx-amt credit">+${aud(tx.amount)}</div>
-    </div>`).join('') || '<div style="padding:16px;text-align:center;color:var(--faint);font-size:12px;">No credits found</div>';
+    </div>`;
+  }).join('') || '<div style="padding:16px;text-align:center;color:var(--faint);font-size:12px;">No credits found</div>';
 }
 
 function toggleTxPanel(){
@@ -3090,8 +3124,7 @@ function showBankLoadedBar(filename){
   const section = $('bank-drop-section');
   if(bar){ bar.classList.remove('hidden'); }
   if(section){ section.style.display = 'none'; }
-  const invoiceAmts = new Set([...(invoiceHistory||[]),...(importedInvoices||[])].map(i=>i.total.toFixed(2)));
-  const credits = bankTransactions.filter(t => invoiceAmts.has(t.amount.toFixed(2)));
+  const credits = bankTransactions.filter(t => t.amount > 0);
   if(credits.length){
     const dates = credits.map(t=>t.date).sort();
     $t('bank-loaded-name', filename.length > 40 ? filename.slice(0,40)+'…' : filename);
@@ -3146,6 +3179,7 @@ function loadSavedBankTxs(){
   const saved = ls.get('ndis-bank-txs');
   if(saved && saved.length){
     bankTransactions = saved;
+    const credits = bankTransactions.filter(t=>t.amount>0);
     showBankLoadedBar('Saved statement');
     runReconciliation();
   }
