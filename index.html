@@ -786,9 +786,9 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
              onclick="document.getElementById('bank-file-input').click()">
           <div class="bank-drop-icon">🏦</div>
           <div class="bank-drop-title">Drop your ANZ CSV export here</div>
-          <div class="bank-drop-sub"><span>CSV recommended</span> — more accurate than PDF<br>ANZ Internet Banking → Account → Transactions → Export as CSV<br>PDF statements also accepted (drop multiple files to merge)</div>
+          <div class="bank-drop-sub"><span>CSV or JSON recommended</span> — more accurate than PDF<br>ANZ Internet Banking → Account → Transactions → Export as CSV<br>PDF statements also accepted (drop multiple files to merge)</div>
         </div>
-        <input type="file" id="bank-file-input" accept=".pdf,.csv,.txt" multiple style="display:none" onchange="bankFileSelected(event)"/>
+        <input type="file" id="bank-file-input" accept=".pdf,.csv,.txt,.json" multiple style="display:none" onchange="bankFileSelected(event)"/>
         <div class="disc" style="margin-top:0;">💡 <strong>Best results with CSV:</strong> ANZ Internet Banking → Accounts → <em>your account</em> → Transactions → <strong>Export</strong> → select date range → <strong>CSV</strong>. Export separate files for each period if needed and drop them all at once — duplicates are removed automatically.</div>
       </div>
 
@@ -2589,7 +2589,7 @@ async function processBankFiles(files){
   let allTx = [];
   for(const f of files){
     const ext = f.name.split('.').pop().toLowerCase();
-    if(ext === 'csv' || ext === 'txt'){
+    if(ext === 'csv' || ext === 'txt' || ext === 'json'){
       const text = await f.text();
       allTx = allTx.concat(parseANZCSV(text));
     } else if(ext === 'pdf'){
