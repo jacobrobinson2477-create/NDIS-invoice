@@ -2893,111 +2893,159 @@ function runReconciliation(){
   // Only work with credit transactions (positive amounts = money IN)
   const credits = bankTransactions.filter(tx => tx.amount > 0);
 
-  // ── Keyword helpers ──────────────────────────────────────────────────────────
-  // Extract searchable tokens from a string (uppercase words, length >= 3)
-  function tokens(s){ return (s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>=3); }
+  // ── Payer → Plan Manager mapping ────────────────────────────────────────────
+  // Maps keywords found in ANZ descriptions to the PM org names used in invoices.
+  const PAYER_TO_PM = [
+    { re: /PLAN\s*PARTNERS/i,          pm: 'Plan Partners' },
+    { re: /JUST\s*BETTER\s*CARE/i,     pm: 'Just Better Care Illawarra' },
+    { re: /GBS\s*INTERNET/i,           pm: 'Just Better Care Illawarra' },
+    { re: /ILLAWARRA\s*DISABI/i,       pm: 'Trusted Plan Management' },
+    { re: /MCARE\s*BENEFITS/i,         pm: 'Trusted Plan Management' },
+    { re: /NDIS[\-.]PLANMANAGED/i,     pm: 'Tulgeen Disability Services' },
+    { re: /TULGEEN/i,                  pm: 'Tulgeen Disability Services' },
+  ];
 
-  // Score how well a bank description matches a client/plan-manager name.
-  // Returns 0–1 (1 = strong keyword match).
-  function descMatchScore(txDesc, clientName, pmOrg){
-    const desc = txDesc.toUpperCase();
-    const sources = [clientName, pmOrg].filter(Boolean);
-    let best = 0;
-    for(const src of sources){
-      const toks = tokens(src);
-      if(!toks.length) continue;
-      const hits = toks.filter(t => desc.includes(t)).length;
-      const score = hits / toks.length;
-      if(score > best) best = score;
+  // Determine which PM org a bank credit likely came from
+  function txPM(desc){
+    for(const p of PAYER_TO_PM){
+      if(p.re.test(desc)) return p.pm;
     }
-    // Also check known payer keywords that appear in ANZ descriptions
-    const PAYER_PATTERNS = [
-      { re: /ILLAWARRA\s*DISABI/i,   hint: 'Illawarra Disability' },
-      { re: /JUST\s*BETTER\s*CARE/i, hint: 'Just Better Care' },
-      { re: /PLAN\s*PARTNERS/i,      hint: 'Plan Partners' },
-      { re: /NDIS.PLANMANAGED/i,     hint: 'NDIS Plan Managed' },
-      { re: /MCARE\s*BENEFITS/i,     hint: 'Mcare Benefits' },
-      { re: /GBS\s*INTERNET/i,       hint: 'GBS' },
-    ];
-    for(const p of PAYER_PATTERNS){
-      if(p.re.test(txDesc)){
-        // Check if the client or PM name contains a matching word
-        const hintToks = tokens(p.hint);
-        const matchSrc = sources.some(s => hintToks.some(t => s.toUpperCase().includes(t)));
-        if(matchSrc && best < 0.8) best = 0.8;
-      }
-    }
-    return best;
+    return null;
   }
 
-  // ── Match each invoice ───────────────────────────────────────────────────────
-  const used = new Set(); // indices into credits[] that have been assigned
+  // Fuzzy match: does the bank description mention the PM or client name?
+  function nameScore(txDesc, clientName, pmOrg){
+    const d = txDesc.toUpperCase();
+    const words = s => (s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>=4);
+    for(const src of [pmOrg, clientName]){
+      const ws = words(src);
+      if(ws.length && ws.filter(w=>d.includes(w)).length / ws.length >= 0.5) return 1;
+    }
+    return 0;
+  }
 
+  // ── Reset all invoices ───────────────────────────────────────────────────────
   for(const inv of allInvoices){
-    inv._matchTx = null;
+    inv._matchTx   = null;
+    inv._batchTx   = null;   // set when part of a batched payment
+    inv._batchNums = null;   // other invoice numbers in the same batch
     inv._matchNote = '';
-    const cl = clients.find(c=>c.id===inv.clientId);
+    inv._reconStatus = 'unknown';
+  }
+
+  const usedTx = new Set();   // credit indices already assigned
+
+  // ── PASS 1: exact individual amount match ────────────────────────────────────
+  for(const inv of allInvoices){
+    const cl  = clients.find(c=>c.id===inv.clientId);
     const pmOrg = cl?.pm?.org || inv.pmOrg || '';
-    const clientName = inv.clientName || '';
     const invDate = new Date(inv.date+'T12:00:00');
-    const invAmt = inv.total;
 
-    let bestIdx = -1;
-    let bestScore = -1;
-
+    let bestIdx = -1, bestScore = -1;
     for(let i = 0; i < credits.length; i++){
-      if(used.has(i)) continue;
+      if(usedTx.has(i)) continue;
       const tx = credits[i];
+      if(Math.abs(tx.amount - inv.total) > 0.02) continue;
       const txDate = new Date(tx.date+'T12:00:00');
-      const dayDiff = (txDate - invDate) / 86400000;
+      const days   = (txDate - invDate) / 86400000;
+      if(days < -60 || days > 120) continue;
 
-      // Only look at payments between 60 days before and 120 days after invoice date
-      if(dayDiff < -60 || dayDiff > 120) continue;
+      // Prefer credits from the same PM; fall back to any close-enough credit
+      const pmMatch  = txPM(tx.desc) === pmOrg ? 0.5 : 0;
+      const nameHit  = nameScore(tx.desc, inv.clientName, pmOrg) * 0.3;
+      const recency  = (1 - Math.min(Math.abs(days), 180) / 180) * 0.2;
+      const score    = pmMatch + nameHit + recency;
 
-      const txAmt = tx.amount;
-      const amtDiff = Math.abs(txAmt - invAmt);
-      const amtRatio = amtDiff / invAmt; // 0 = exact match
+      if(score > bestScore){ bestScore = score; bestIdx = i; }
+    }
+    if(bestIdx >= 0){
+      usedTx.add(bestIdx);
+      inv._reconStatus = 'matched';
+      inv._matchTx     = credits[bestIdx];
+      inv._matchNote   = bestScore >= 0.5 ? 'amount + payer' : 'amount only';
+    }
+  }
 
-      // Exact amount match scores highest
-      let amtScore = 0;
-      if(amtDiff < 0.02)       amtScore = 1.0;   // exact (within rounding)
-      else if(amtRatio < 0.01) amtScore = 0.85;  // within 1%
-      else continue; // We require a close amount match; no partial payment guessing
+  // ── PASS 2: batch / combined payment matching ────────────────────────────────
+  // For each still-unmatched credit, try to find a subset of unmatched invoices
+  // (from the same PM, within the date window) whose amounts sum to the credit.
+  // We search combinations of up to 6 invoices — covers all real-world cases.
+  const unmatchedInvs = allInvoices.filter(inv => inv._reconStatus === 'unknown');
 
-      // Keyword/payer name match score
-      const nameScore = descMatchScore(tx.desc, clientName, pmOrg);
+  for(let ci = 0; ci < credits.length; ci++){
+    if(usedTx.has(ci)) continue;
+    const tx     = credits[ci];
+    const pm     = txPM(tx.desc);
+    if(!pm) continue;                      // not a known plan-manager credit
+    const txDate = new Date(tx.date+'T12:00:00');
+    const target = Math.round(tx.amount * 100);   // work in cents to avoid float drift
 
-      // Recency bonus: closer in time = better (within the 180-day window)
-      const recencyScore = 1 - Math.min(Math.abs(dayDiff), 180) / 180;
+    // Candidate invoices: same PM, not yet matched, paid within window
+    const cands = unmatchedInvs.filter(inv => {
+      if(inv._reconStatus !== 'unknown') return false;
+      const invPm = (clients.find(c=>c.id===inv.clientId)?.pm?.org) || inv.pmOrg || '';
+      if(invPm !== pm) return false;
+      const days = (txDate - new Date(inv.date+'T12:00:00')) / 86400000;
+      return days >= -60 && days <= 120;
+    });
 
-      // Weighted total score
-      // Amount is the most important signal, then payer name, then recency
-      const total = amtScore * 0.6 + nameScore * 0.3 + recencyScore * 0.1;
+    if(!cands.length) continue;
 
-      if(total > bestScore){
-        bestScore = total;
-        bestIdx = i;
+    // Subset-sum search (up to 6 items deep)
+    function findSubset(items, target, maxDepth){
+      // Iterative combinations via bitmask for small sets, recursive otherwise
+      const n = Math.min(items.length, 20); // cap at 20 candidates for performance
+      const sub = items.slice(0, n);
+      for(let size = 2; size <= Math.min(maxDepth, n); size++){
+        const result = combo(sub, size, target);
+        if(result) return result;
+      }
+      return null;
+    }
+
+    function combo(arr, k, target){
+      const result = [];
+      function pick(start, rem, chosen, sum){
+        if(rem === 0){
+          if(Math.abs(sum - target) <= 2){ result.push([...chosen]); return true; }
+          return false;
+        }
+        for(let i = start; i <= arr.length - rem; i++){
+          chosen.push(i);
+          if(pick(i+1, rem-1, chosen, sum + Math.round(arr[i].total*100))) return true;
+          chosen.pop();
+        }
+        return false;
+      }
+      pick(0, k, [], 0);
+      return result.length ? result[0].map(i=>arr[i]) : null;
+    }
+
+    const batch = findSubset(cands, target, 6);
+    if(batch){
+      usedTx.add(ci);
+      const batchNums = batch.map(i=>i.invoiceNum);
+      for(const inv of batch){
+        inv._reconStatus = 'matched';
+        inv._batchTx     = tx;
+        inv._matchTx     = tx;
+        inv._batchNums   = batchNums.filter(n=>n!==inv.invoiceNum);
+        inv._matchNote   = `batch payment (${batchNums.length} invoices)`;
       }
     }
+  }
 
-    if(bestIdx >= 0){
-      used.add(bestIdx);
-      inv._reconStatus = 'matched';
-      inv._matchTx = credits[bestIdx];
-      // Note if it was matched by name vs amount-only
-      const nameS = descMatchScore(credits[bestIdx].desc, clientName, pmOrg);
-      inv._matchNote = nameS >= 0.5 ? 'amount + payer name' : 'amount only';
-    } else {
-      inv._reconStatus = (inv.payStatus === 'sent' || inv.payStatus === 'pending')
-        ? 'pending'
-        : bankTransactions.length > 0 ? 'unmatched' : 'unknown';
-    }
+  // ── PASS 3: mark remaining as pending or unmatched ───────────────────────────
+  for(const inv of allInvoices){
+    if(inv._reconStatus !== 'unknown') continue;
+    inv._reconStatus = (inv.payStatus==='sent' || inv.payStatus==='pending')
+      ? 'pending'
+      : bankTransactions.length > 0 ? 'unmatched' : 'unknown';
   }
 
   renderReconStats(allInvoices);
   renderReconResults();
   renderBankTxList();
-  // Show UI elements
   $('recon-stats').classList.remove('hidden');
   $('recon-filters').classList.remove('hidden');
   $('recon-tx-panel').classList.remove('hidden');
@@ -3060,8 +3108,10 @@ function renderReconResults(){
       const pm = cl?.pm?.org || inv.pmOrg || 'Unknown PM';
       const dot = st==='matched'?'✓':st==='pending'?'⏳':'✗';
       const matchNote = inv._matchNote ? ` <span style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace;">(${esc(inv._matchNote)})</span>` : '';
+      const batchInfo = inv._batchNums?.length
+        ? `<div style="font-size:11px;color:var(--sub);margin-top:2px;">📦 Batched with: ${esc(inv._batchNums.join(', '))}</div>` : '';
       const matchInfo = inv._matchTx
-        ? `<div class="recon-match-info">Matched bank credit ${fmtShort(inv._matchTx.date)} — ${esc(inv._matchTx.desc.slice(0,70))}${matchNote}</div>`
+        ? `<div class="recon-match-info">Matched bank credit ${fmtShort(inv._matchTx.date)} — ${esc(inv._matchTx.desc.slice(0,70))}${matchNote}</div>${batchInfo}`
         : st==='unmatched' ? `<div class="recon-unmatch-info">No matching bank deposit found</div>` : '';
       html += `<div class="recon-row ${st}">
         <div class="recon-status-dot ${st}">${dot}</div>
