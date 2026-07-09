@@ -431,7 +431,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 <nav class="nav">
   <div class="nav-brand">
     <span class="nav-logo" onclick="goPage('dashboard')">NDIS<span>invoice</span></span>
-    <span class="nav-badge">2025–26</span>
+    <span class="nav-badge">2026–27</span>
   </div>
   <div class="nav-right">
     <button class="nav-btn nav-hide-mobile" id="nav-history" onclick="goPage('history')">📋 History</button>
@@ -644,7 +644,7 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
         <div class="card-hd"><span class="card-hd-icon">📝</span> Invoice Notes <span style="font-size:11px;font-weight:400;color:var(--faint)">(optional)</span></div>
         <div class="field"><input id="f-invnotes" placeholder="e.g. Thank you for your continued support"/></div>
       </div>
-      <div class="disc">⚠ Rates from NDIS Pricing Arrangements and Price Limits 2025–26 v1.1 (effective 1 July 2025, updated 24 November 2025). Always verify at ndis.gov.au before submitting claims.</div>
+      <div class="disc">⚠ Rates from NDIS Pricing Schedule 2026–27 (effective 1 July 2026). Always verify at ndis.gov.au before submitting claims.</div>
       <div class="btn-row">
         <button class="btn btn-primary" id="gen-btn" onclick="goInvoice()" disabled>Generate Invoice →</button>
         <button class="btn btn-ghost" onclick="goPage('dashboard')">← Dashboard</button>
@@ -850,11 +850,12 @@ body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-h
 <button class="mobile-add-fab hidden" id="mob-fab" onclick="document.getElementById('f-date').focus()" title="Add session">＋</button>
 
 <script>
-// ── NDIS 2025-26 Data ─────────────────────────────────────────────────────────
+// ── NDIS 2026-27 Data ─────────────────────────────────────────────────────────
 const PH = new Set([
   "2024-01-01","2024-01-26","2024-03-29","2024-03-30","2024-04-01","2024-04-25","2024-12-25","2024-12-26",
   "2025-01-01","2025-01-27","2025-04-18","2025-04-19","2025-04-21","2025-04-25","2025-12-25","2025-12-26",
   "2026-01-01","2026-01-26","2026-04-03","2026-04-04","2026-04-06","2026-04-25","2026-06-08","2026-12-25","2026-12-28",
+  "2027-01-01","2027-01-26","2027-03-26","2027-03-27","2027-03-29","2027-04-25","2027-04-26","2027-06-14",
 ]);
 
 const DAY_META={
@@ -867,15 +868,15 @@ const DAY_META={
 
 const SUPPORTS={
   personal_care: {label:"Personal Care & Daily Activities",short:"Assistance with Self-Care Activities",cat:"01 – Daily Life",hasEvening:true,
-    rates:{weekday:{item:"01_011_0107_1_1",rate:70.23},weekday_evening:{item:"01_015_0107_1_1",rate:77.38},saturday:{item:"01_013_0107_1_1",rate:98.83},sunday:{item:"01_014_0107_1_1",rate:127.43},public_holiday:{item:"01_012_0107_1_1",rate:156.03}}},
+    rates:{weekday:{item:"01_011_0107_1_1",rate:73.58},weekday_evening:{item:"01_015_0107_1_1",rate:81.07},saturday:{item:"01_013_0107_1_1",rate:103.54},sunday:{item:"01_014_0107_1_1",rate:133.50},public_holiday:{item:"01_012_0107_1_1",rate:163.46}}},
   community:{label:"Community Access & Social Activities",short:"Access Community Social and Recreational Activities",cat:"04 – Social & Community",hasEvening:true,
-    rates:{weekday:{item:"04_104_0125_6_1",rate:70.23},weekday_evening:{item:"04_103_0125_6_1",rate:77.38},saturday:{item:"04_105_0125_6_1",rate:98.83},sunday:{item:"04_106_0125_6_1",rate:127.43},public_holiday:{item:"04_102_0125_6_1",rate:156.03}}},
+    rates:{weekday:{item:"04_104_0125_6_1",rate:73.58},weekday_evening:{item:"04_103_0125_6_1",rate:81.07},saturday:{item:"04_105_0125_6_1",rate:103.54},sunday:{item:"04_106_0125_6_1",rate:133.50},public_holiday:{item:"04_102_0125_6_1",rate:163.46}}},
   household:{label:"Household Tasks & Domestic Assistance",short:"House Cleaning and Other Household Activities",cat:"01 – Daily Life",hasEvening:false,
-    rates:{weekday:{item:"01_020_0120_1_1",rate:58.03},weekday_evening:{item:"01_020_0120_1_1",rate:58.03},saturday:{item:"01_020_0120_1_1",rate:58.03},sunday:{item:"01_020_0120_1_1",rate:58.03},public_holiday:{item:"01_020_0120_1_1",rate:58.03}}},
+    rates:{weekday:{item:"01_020_0120_1_1",rate:60.10},weekday_evening:{item:"01_020_0120_1_1",rate:60.10},saturday:{item:"01_020_0120_1_1",rate:60.10},sunday:{item:"01_020_0120_1_1",rate:60.10},public_holiday:{item:"01_020_0120_1_1",rate:60.10}}},
   support_coord:{label:"Support Coordination",short:"Support Coordination",cat:"07 – Support Coordination",hasEvening:false,
     rates:{weekday:{item:"07_002_0106_8_3",rate:100.14},weekday_evening:{item:"07_002_0106_8_3",rate:100.14},saturday:{item:"07_002_0106_8_3",rate:100.14},sunday:{item:"07_002_0106_8_3",rate:100.14},public_holiday:{item:"07_002_0106_8_3",rate:100.14}}},
   life_skills:{label:"Life Skills & Capacity Building",short:"Skill Development and Training",cat:"15 – Improved Daily Living",hasEvening:false,
-    rates:{weekday:{item:"15_037_0117_1_3",rate:70.23},weekday_evening:{item:"15_037_0117_1_3",rate:70.23},saturday:{item:"15_037_0117_1_3",rate:70.23},sunday:{item:"15_037_0117_1_3",rate:70.23},public_holiday:{item:"15_037_0117_1_3",rate:70.23}}},
+    rates:{weekday:{item:"15_037_0117_1_3",rate:73.58},weekday_evening:{item:"15_037_0117_1_3",rate:73.58},saturday:{item:"15_037_0117_1_3",rate:73.58},sunday:{item:"15_037_0117_1_3",rate:73.58},public_holiday:{item:"15_037_0117_1_3",rate:73.58}}},
   transport:{label:"Provider Travel (per km)",short:"Provider Travel – Non-Labour Costs",cat:"01 – Daily Life",hasEvening:false,unit:"km",
     rates:{weekday:{item:"04_799_0125_6_1",rate:1.00},weekday_evening:{item:"04_799_0125_6_1",rate:1.00},saturday:{item:"04_799_0125_6_1",rate:1.00},sunday:{item:"04_799_0125_6_1",rate:1.00},public_holiday:{item:"04_799_0125_6_1",rate:1.00}}},
 };
@@ -1338,7 +1339,7 @@ function updateRateBox(){
   if(sup?.hasEvening&&dt&&!["saturday","sunday","public_holiday"].includes(dt)){ew.classList.remove("hidden");}
   else{ew.classList.add("hidden");document.getElementById("f-eve").checked=false;}
   const ri=curRate();
-  if(ri){const u=sup?.unit||"hr";rw.innerHTML=`<div class="rate-box"><div><div class="rate-lbl">2025–26 NDIS Rate</div><div class="rate-item">Item ${esc(ri.item)}</div></div><div><span class="rate-num">${aud(ri.rate)}</span><span class="rate-unit">/${u}</span></div></div>`;}
+  if(ri){const u=sup?.unit||"hr";rw.innerHTML=`<div class="rate-box"><div><div class="rate-lbl">2026–27 NDIS Rate</div><div class="rate-item">Item ${esc(ri.item)}</div></div><div><span class="rate-num">${aud(ri.rate)}</span><span class="rate-unit">/${u}</span></div></div>`;}
   else rw.innerHTML="";
   onQtyChange();
 }
